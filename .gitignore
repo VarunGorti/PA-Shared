@@ -1,0 +1,6 @@
+cpu
+*.out
+*.vcd
+*.raw
+*.cycles
+mem.hex
