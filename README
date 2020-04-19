@@ -1,15 +1,17 @@
 Due date:
-    test 4/17/2020 @11:59pm
-    code 4/18/2020 @11:59pm
+    test 4/24/2020 @11:59pm
+    code 4/25/2020 @11:59pm
 
 Assignment: 
 
-(1) Finish a pipelined implementation of a simple instruction set.
+(1) Improve your p8 implementation
 
-    Please look carefully at mem.v and regs.v, the memory and register
-    interface is different from p8.
+    - reduce flushing
+    - reduce stalling
+    - handle misaligned memory references
+    - add a branch predictor
 
-(2) Contribute a test by adding 2 files and committing them:
+(2) Improve your test case
 
     - <your csid>.hex       your program
     - <your csid>.ok        expected output
