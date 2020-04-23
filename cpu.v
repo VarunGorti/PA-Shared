@@ -103,8 +103,8 @@ reg[15:0] instruction_decode1;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
-		regs_addr0_decode1 <= isFlushing === 1 | loadStall === 1 ? regs_addr0 : regs_addr0 ;
-		regs_addr1_decode1 <= isFlushing === 1 | loadStall === 1 ? regs_addr1 : regs_addr1;
+		regs_addr0_decode1 <= regs_addr0 ;
+		regs_addr1_decode1 <= regs_addr1;
 
 		pc_decode1 <= pc_fetch1;
 		instruction_decode1 <= isFlushing === 1 | loadStall === 1 ? 16'he010 : instruction;
@@ -112,9 +112,9 @@ always @(posedge clk) begin
 end
 
 assign raddr1 = instruction[11:8] == 0 ? 0 :
+	(regs_addr0 == ra_d2) & regs_wen_d2 ? reg_out_d2[15:1] :
 	(regs_addr0 == regs_waddr) & regs_wen ? reg_out[15:1] :
 	regs_data0[15:1];
-
 
 // ========================================= DECODE 2 ======================
 
@@ -124,6 +124,32 @@ reg[15:0] regs_data0_decode2;
 reg[15:0] regs_data1_decode2;
 reg[15:0] pc_decode2;
 reg[15:0] instruction_decode2;
+
+wire[3:0] opcode_d2 = instruction_decode1[15:12];
+
+wire[7:0] imm_d2 = instruction_decode1[11:4];
+wire[3:0] xop_d2 = instruction_decode1[7:4];
+wire[3:0] ra_d2 = instruction_decode1[11:8];
+wire[3:0] rb_d2 = instruction_decode1[7:4];
+wire[3:0] target_d2 = instruction_decode1[3:0];
+
+wire isSub_d2 = (opcode_d2 == 0);
+wire isMovl_d2 = (opcode_d2 == 8);
+wire isMovh_d2 = (opcode_d2 == 9);
+
+// Note that this does not include LOAD, because if it is a load we can't
+// really forward from this stage in the first place
+wire updateRegs_d2 = isSub_d2 | isMovl_d2 | isMovh_d2;
+wire regs_wen_d2 = updateRegs_d2 & (target_d2 != 0); 
+
+wire[15:0] va_d2 = ra_d2 == 0 ? 0 : regs_data0;
+wire[15:0] vb_d2 = rb_d2 == 0 ? 0 : regs_data1;
+wire[15:0] vt_d2 = target_d2 == 0 ? 0 : regs_data1;
+
+wire[16:0] reg_out_d2 = isSub_d2 ? va_d2 - vb_d2 :
+	isMovl ? { {8{imm_d2[7]}}, imm_d2} :
+	isMovh ? ((vt_d2 & 16'hff) | { imm_d2, 8'h0 }) :
+	0;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
