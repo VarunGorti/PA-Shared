@@ -271,7 +271,17 @@ wire isJumping = (isJz & (va_wb == 0)) |
 	(isJs & (va_wb[15] == 1)) |
 	(isJns & (va_wb[15] == 0));
 
-wire isFlushing = (isJumping | isLd | isSt) & valid_execute2;
+
+// This technically also needs to check if these things are valid, although
+// they should always be
+wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]);
+
+// COME BACK to this, can make it more efficient by actually checking the
+// memory addresses
+wire isLd_needsFlush = (isLd === 1 | isSt === 1) & ((isLd_e2 === 1 | isLd_e1 === 1);
+
+
+wire isFlushing = (isJumping | isLd | isSt_needsFlush | isLd_needsFlush) & valid_execute2;
 
 wire isValidIns = isSub_wb | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | (valid_execute2 === 0);
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
@@ -298,7 +308,7 @@ wire debugging = 0;
 always @(posedge clk) begin
 	if(shouldContinue) begin     
 		pc <= (isJumping === 1 & valid_execute2 === 1) ? vt_wb :
-			((isLd === 1 | isSt === 1) & (valid_execute2 === 1)) ? pc_execute2 + 2 :
+			((isLd === 1 | isSt_needsFlush === 1 | isLd_needsFlush) & (valid_execute2 === 1)) ? pc_execute2 + 2 :
 			pc + 2;
 		if (updateRegs & (target == 0) & (valid_execute2 === 1))
 			$write("%c", regs_wdata[7:0]);
