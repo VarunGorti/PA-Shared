@@ -102,8 +102,9 @@ always @(posedge clk) begin
 end
 
 assign raddr1 = instruction[11:8] == 0 ? 0 :
-//	(regs_addr0 == ra_d2) & regs_wen_d2 ? reg_out_d2[15:1] :
-	(regs_addr0 == regs_waddr) & regs_wen ? reg_out[15:1] :
+	(regs_addr0 == target_e1) & regs_wen_e1 ? reg_out_e1[15:1] :
+	(regs_addr0 == target_e2) & regs_wen_e2 ? reg_out_e2[15:1] :
+	(regs_addr0 == target) & regs_wen ? reg_out[15:1] :
 	regs_data0[15:1];
 
 // ========================================= EXECUTE 1 ======================
@@ -116,32 +117,41 @@ reg[15:0] pc_execute1;
 reg[15:0] instruction_execute1;
 reg valid_execute1;
 
-/*
-wire[3:0] opcode_d2 = instruction_execute0[15:12];
-wire[7:0] imm_d2 = instruction_execute0[11:4];
-wire[3:0] xop_d2 = instruction_execute0[7:4];
-wire[3:0] ra_d2 = instruction_execute0[11:8];
-wire[3:0] rb_d2 = instruction_execute0[7:4];
-wire[3:0] target_d2 = instruction_execute0[3:0];
+wire[3:0] opcode_e1 = instruction_execute0[15:12];
+wire[7:0] imm_e1 = instruction_execute0[11:4];
+wire[3:0] xop_e1 = instruction_execute0[7:4];
+wire[3:0] ra_e1 = instruction_execute0[11:8];
+wire[3:0] rb_e1 = instruction_execute0[7:4];
+wire[3:0] target_e1 = instruction_execute0[3:0];
 
-wire isSub_d2 = (opcode_d2 == 0);
-wire isMovl_d2 = (opcode_d2 == 8);
-wire isMovh_d2 = (opcode_d2 == 9);
+wire isSub_e1 = (opcode_e1 == 0);
+wire isMovl_e1 = (opcode_e1 == 8);
+wire isMovh_e1 = (opcode_e1 == 9);
+wire isLd_e1 = (opcode_e1 == 15) & (xop_e1 == 0);
 
 // Note that this does not include LOAD, because if it is a load we can't
 // really forward from this stage in the first place
-wire updateRegs_d2 = isSub_d2 | isMovl_d2 | isMovh_d2;
-wire regs_wen_d2 = updateRegs_d2 & (target_d2 != 0); 
+wire updateRegs_e1 = (isSub_e1 | isMovl_e1 | isMovh_e1) & valid_execute1;
+wire regs_wen_e1 = updateRegs_e1 & (target_e1 != 0); 
 
-wire[15:0] va_d2 = ra_d2 == 0 ? 0 : regs_data0;
-wire[15:0] vb_d2 = rb_d2 == 0 ? 0 : regs_data1;
-wire[15:0] vt_d2 = target_d2 == 0 ? 0 : regs_data1;
+wire[15:0] va_e1 = ra_e1 == 0 ? 0 :
+       		   (ra_e1 === ra_e2) & regs_wen_e2 ? va_e2 :	
+		   (ra_e1 === regs_waddr) & regs_wen ? reg_out :
+	           regs_data0;
+wire[15:0] vb_e1 = rb_e1 == 0 ? 0 :
+       		   (rb_e1 === rb_e2) & regs_wen_e2 ? vb_e2 :
+		   (rb_e1 === regs_waddr) & regs_wen ? reg_out :
+		   regs_data1;
+wire[15:0] vt_e1 = target_e1 == 0 ? 0 : 
+       		   (target_e1 === target_e2) & regs_wen_e2 ? vt_e2 :	
+		   (target_e1 === regs_waddr) & regs_wen ? reg_out :
+		   regs_data1;
 
-wire[16:0] reg_out_d2 = isSub_d2 ? va_d2 - vb_d2 :
-	isMovl ? { {8{imm_d2[7]}}, imm_d2} :
-	isMovh ? ((vt_d2 & 16'hff) | { imm_d2, 8'h0 }) :
+wire[16:0] reg_out_e1 = isSub_e1 ? va_e1 - vb_e1 :
+	isMovl ? { {8{imm_e1[7]}}, imm_e1} :
+	isMovh ? ((vt_e1 & 16'hff) | { imm_e1, 8'h0 }) :
 	0;
-*/
+
 always @(posedge clk) begin
 	if(shouldContinue) begin
 		regs_addr0_execute1 <= regs_addr0_execute0;
@@ -171,7 +181,7 @@ reg[15:0] pc_execute2;
 reg[15:0] instruction_execute2;
 reg valid_execute2;
 
-/*
+
 wire[3:0] opcode_e2 = instruction_execute1[15:12];
 wire[7:0] imm_e2 = instruction_execute1[11:4];
 wire[3:0] xop_e2 = instruction_execute1[7:4];
@@ -186,18 +196,25 @@ wire isLd_e2 = (opcode_e2 == 15) & (xop_e2 == 0);
 
 // Note that this does not include LOAD, because if it is a load we can't
 // really forward from this stage in the first place
-wire updateRegs_e2 = isSub_e2 | isMovl_e2 | isMovh_e2;
+wire updateRegs_e2 = (isSub_e2 | isMovl_e2 | isMovh_e2) & valid_execute1;
 wire regs_wen_e2 = updateRegs_e2 & (target_e2 != 0); 
 
-wire[15:0] va_e2 = ra_e2 == 0 ? 0 : regs_data0;
-wire[15:0] vb_e2 = rb_e2 == 0 ? 0 : regs_data1;
-wire[15:0] vt_e2 = target_e2 == 0 ? 0 : regs_data1;
+wire[15:0] va_e2 = ra_e2 == 0 ? 0 : 
+		   (ra_e2 === regs_waddr) & regs_wen ? reg_out :
+	           regs_data0_execute1;
+wire[15:0] vb_e2 = rb_e2 == 0 ? 0 : 
+		   (rb_e2 === regs_waddr) & regs_wen ? reg_out :
+		   regs_data1_execute1;
+wire[15:0] vt_e2 = target_e2 == 0 ? 0 : 
+		   (target_e2 === regs_waddr) & regs_wen ? reg_out :
+		   regs_data1_execute1;
 
 wire[16:0] reg_out_e2 = isSub_e2 ? va_e2 - vb_e2 :
 	isMovl ? { {8{imm_e2[7]}}, imm_e2} :
 	isMovh ? ((vt_e2 & 16'hff) | { imm_e2, 8'h0 }) :
 	0;
-*/
+
+
 always @(posedge clk) begin
 	if(shouldContinue) begin
 		regs_addr0_execute2 <= regs_addr0_execute1;
