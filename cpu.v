@@ -135,11 +135,11 @@ wire updateRegs_e1 = (isSub_e1 | isMovl_e1 | isMovh_e1) & valid_execute1;
 wire regs_wen_e1 = updateRegs_e1 & (target_e1 != 0); 
 
 wire[15:0] va_e1 = ra_e1 == 0 ? 0 :
-       		   (ra_e1 === ra_e2) & regs_wen_e2 ? va_e2 :	
+       		   (ra_e1 === target_e2) & regs_wen_e2 ? va_e2 :	
 		   (ra_e1 === regs_waddr) & regs_wen ? reg_out :
 	           regs_data0;
 wire[15:0] vb_e1 = rb_e1 == 0 ? 0 :
-       		   (rb_e1 === rb_e2) & regs_wen_e2 ? vb_e2 :
+       		   (rb_e1 === target_e2) & regs_wen_e2 ? vb_e2 :
 		   (rb_e1 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1;
 wire[15:0] vt_e1 = target_e1 == 0 ? 0 : 
