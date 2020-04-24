@@ -45,6 +45,7 @@ regs regs(clk,
 	regs_addr1, regs_data1,
 	regs_wen, regs_waddr, regs_wdata);
 
+
 // ================================= FETCH 0 ================================
 
 reg[15:0] pc_fetch0;
@@ -101,11 +102,16 @@ always @(posedge clk) begin
 	end
 end
 
-assign raddr1 = instruction[11:8] == 0 ? 0 :
-	(regs_addr0 == target_e1) & regs_wen_e1 ? reg_out_e1[15:1] :
-	(regs_addr0 == target_e2) & regs_wen_e2 ? reg_out_e2[15:1] :
-	(regs_addr0 == target) & regs_wen ? reg_out[15:1] :
+assign raddr1 = instruction_execute0[11:8] == 0 ? 0 :
+	(regs_addr0 === target_e1) & regs_wen_e1 ? reg_out_e1[15:1] :
+	(regs_addr0 === target_e2) & regs_wen_e2 ? reg_out_e2[15:1] :
+	(regs_addr0 === target) & regs_wen ? reg_out[15:1] :
 	regs_data0[15:1];
+
+wire forward_e1 = (regs_addr0 === target_e1) & regs_wen_e1; 
+wire forward_e2 = (regs_addr0 === target_e2) & regs_wen_e2; 
+wire forward_wb = (regs_addr0 === target) & regs_wen; 
+
 
 // ========================================= EXECUTE 1 ======================
 
@@ -307,9 +313,9 @@ always @(posedge clk) begin
 		$write("               Execute 1 = %x  %b  %x\n", pc_execute0, valid_execute0, instruction_execute0);
 		$write("               Execute 2 = %x  %b  %x\n", pc_execute1, valid_execute1, instruction_execute1);
 		$write("              Write Back = %x  %b  %x\n", pc_execute2, valid_execute2, instruction_execute2);
-		//$write("waddr = %x\n", waddr);
-		//$write("wdata = %x\n", wdata);
-		//$write("wen = %b\n", wen);
+		$write("waddr = %x\n", waddr);
+		$write("wdata = %x\n", wdata);
+//		$write("wen = %b\n", wen);
 		$write("regs_waddr = %x\n", regs_waddr);
 		$write("regs_wdata = %x\n", regs_wdata);
 		$write("regs_wen = %b\n", regs_wen);
@@ -320,11 +326,15 @@ always @(posedge clk) begin
 		$write("raddr1 = %x\n", raddr1);
 		$write("instruction = %x\n", instruction);
 		$write("regs_data0 = %x\n", regs_data0);
-
-		$write("isJumping = %b\n", isJumping);
-		$write("va_wb = %x\n", va_wb);
-		$write("vb_wb = %x\n", vb_wb);
-		$write("vt_wb = %x\n", vt_wb);
+		
+		$write("regs_addr0 = %x\n", regs_addr0);
+		$write("forward_e1 = %b\n", forward_e1);
+		$write("forward_e2 = %b\n", forward_e2);
+		$write("forward_wb = %b\n", forward_wb);
+//		$write("isJumping = %b\n", isJumping);
+		//$write("va_wb = %x\n", va_wb);
+		//$write("vb_wb = %x\n", vb_wb);
+		//$write("vt_wb = %x\n", vt_wb);
 		$write("\n");
 	end
 end
