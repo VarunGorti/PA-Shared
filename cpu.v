@@ -40,6 +40,9 @@ wire regs_wen;
 wire[3:0] regs_waddr;
 wire[15:0] regs_wdata;
 
+// DO actually want 17 bits here, one is the valid bit
+reg[16:0] predictor_table[1023:0];
+
 regs regs(clk,
 	regs_addr0, regs_data0,
 	regs_addr1, regs_data1,
@@ -50,9 +53,14 @@ regs regs(clk,
 
 reg[15:0] pc_fetch0;
 reg valid_fetch0;
+//reg[15:0] predicted_fetch0;
+wire[15:0] predicted = predictor_table[pc[10:1]][16] === 1 ? predictor_table[pc[10:1]][15:0] : pc + 2;
+
 always @(posedge clk) begin
+
 	pc_fetch0 <= pc;
 	valid_fetch0 <= isFlushing === 1 ? 0 : 1;
+	//predicted_fetch0 = predicted;
 end
 
 // ================================= FETCH 1 ================================
@@ -61,11 +69,13 @@ reg[15:0] pc_fetch1;
 reg[1:0] jumpCounter = 0;
 reg[1:0] loadStallCounter = 0;
 reg valid_fetch1;
+//reg[15:0] predicted_pc_fetch1;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
 		pc_fetch1 <= pc_fetch0;
 		valid_fetch1 <= isFlushing === 1 ? 0 : valid_fetch0;
+//		predicted_fetch1 <= predicted_fetch0;
 	end
 end
 
@@ -89,6 +99,7 @@ reg[3:0] regs_addr1_execute0;
 reg[15:0] pc_execute0;
 reg[15:0] instruction_execute0;
 reg valid_execute0;
+//reg[15:0] predicted_pc_execute0;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
@@ -98,6 +109,7 @@ always @(posedge clk) begin
 		pc_execute0 <= pc_fetch1;
 		instruction_execute0 <= instruction;
 
+//		predicted_execute0 <= predicted_fetch1;
 		valid_execute0 <= isFlushing === 1 ? 0 : valid_fetch1;
 	end
 end
@@ -122,6 +134,8 @@ reg[15:0] regs_data1_execute1;
 reg[15:0] pc_execute1;
 reg[15:0] instruction_execute1;
 reg valid_execute1;
+//reg[15:0] predicted_pc_execute1;
+
 
 wire[3:0] opcode_e1 = instruction_execute0[15:12];
 wire[7:0] imm_e1 = instruction_execute0[11:4];
@@ -173,6 +187,8 @@ always @(posedge clk) begin
 		pc_execute1 <= pc_execute0;
 		instruction_execute1 <= instruction_execute0;
 
+//		predicted_execute1 <= predicted_execute0;
+
 		valid_execute1 <= isFlushing === 1 ? 0 : valid_execute0;
 	end
 end
@@ -185,6 +201,7 @@ reg[15:0] regs_data0_execute2;
 reg[15:0] regs_data1_execute2;
 reg[15:0] pc_execute2;
 reg[15:0] instruction_execute2;
+reg[15:0] predicted_pc_execute2;
 reg valid_execute2;
 
 
@@ -236,6 +253,8 @@ always @(posedge clk) begin
 		pc_execute2 <= pc_execute1;
 		instruction_execute2 <= instruction_execute1;
 
+//		predicted_execute2 <= predicted_execute1;
+
 		valid_execute2 <= isFlushing === 1 ? 0 : valid_execute1;
 
 	end
@@ -283,7 +302,7 @@ wire isSt_needsFlush = isSt === 1 & ((waddr === pc_execute1[15:1] | waddr === pc
 wire isLd_needsFlush = isLd === 1 & ((target == ra_e1 & isLd_e1 === 1) | (target == ra_e2 & isLd_e2 === 1));
 
 
-wire isFlushing = (isJumping | isSt_needsFlush | isLd_needsFlush) & valid_execute2;
+wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush) & valid_execute2;
 
 wire isValidIns = isSub_wb | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | (valid_execute2 === 0);
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
@@ -307,11 +326,15 @@ wire printing = updateRegs & (target == 0) & (valid_execute2 === 1);
 
 wire debugging = 0;
 
+wire[15:0] pc_real = (isJumping === 1 & valid_execute2 === 1) ? vt_wb :
+	       ((isSt_needsFlush === 1 | isLd_needsFlush === 1) & (valid_execute2 === 1)) ? pc_execute2 + 2 :
+	       pc_execute2 + 2;
+
 always @(posedge clk) begin
 	if(shouldContinue) begin     
-		pc <= (isJumping === 1 & valid_execute2 === 1) ? vt_wb :
-			((isSt_needsFlush === 1 | isLd_needsFlush) & (valid_execute2 === 1)) ? pc_execute2 + 2 :
-			pc + 2;
+		pc <= isFlushing === 1 ? pc_real : predicted;
+		if(isFlushing === 1 & isJumping === 1 & valid_execute2 === 1)
+			predictor_table[pc_execute2[10:1]] = {1'b1, pc_real};
 		if (updateRegs & (target == 0) & (valid_execute2 === 1))
 			$write("%c", regs_wdata[7:0]);
 	end else begin
@@ -325,24 +348,31 @@ always @(posedge clk) begin
 		$write("               Execute 1 = %x  %b  %x\n", pc_execute0, valid_execute0, instruction_execute0);
 		$write("               Execute 2 = %x  %b  %x\n", pc_execute1, valid_execute1, instruction_execute1);
 		$write("              Write Back = %x  %b  %x\n", pc_execute2, valid_execute2, instruction_execute2);
-		$write("waddr = %x\n", waddr);
-		$write("wdata = %x\n", wdata);
+
+		$write("pc_execute1 = %x\n", pc_execute1);
+		$write("pc_real = %x\n", pc_real);
+		$write("isFlushing = %b\n", isFlushing);
+		$write("isSt_needsFlush = %b\n", isSt_needsFlush);
+		$write("isLd_needsFlush = %b\n", isLd_needsFlush);
+
+//		$write("waddr = %x\n", waddr);
+//		$write("wdata = %x\n", wdata);
 //		$write("wen = %b\n", wen);
-		$write("regs_waddr = %x\n", regs_waddr);
-		$write("regs_wdata = %x\n", regs_wdata);
-		$write("regs_wen = %b\n", regs_wen);
-		//$write("printing = %b\n", printing);
-		$write("isLd = %b\n", isLd);
-		$write("rdata1 = %x\n", rdata1);
+//		$write("regs_waddr = %x\n", regs_waddr);
+//		$write("regs_wdata = %x\n", regs_wdata);
+//		$write("regs_wen = %b\n", regs_wen);
+//		//$write("printing = %b\n", printing);
+//		$write("isLd = %b\n", isLd);
+//		$write("rdata1 = %x\n", rdata1);
 		
-		$write("raddr1 = %x\n", raddr1);
-		$write("instruction = %x\n", instruction);
-		$write("regs_data0 = %x\n", regs_data0);
+//		$write("raddr1 = %x\n", raddr1);
+//		$write("instruction = %x\n", instruction);
+//		$write("regs_data0 = %x\n", regs_data0);
 		
-		$write("regs_addr0 = %x\n", regs_addr0);
-		$write("forward_e1 = %b\n", forward_e1);
-		$write("forward_e2 = %b\n", forward_e2);
-		$write("forward_wb = %b\n", forward_wb);
+//		$write("regs_addr0 = %x\n", regs_addr0);
+//		$write("forward_e1 = %b\n", forward_e1);
+//		$write("forward_e2 = %b\n", forward_e2);
+//		$write("forward_wb = %b\n", forward_wb);
 //		$write("isJumping = %b\n", isJumping);
 		//$write("va_wb = %x\n", va_wb);
 		//$write("vb_wb = %x\n", vb_wb);
