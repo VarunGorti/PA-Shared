@@ -302,7 +302,7 @@ wire isSt_needsFlush = isSt === 1 & ((waddr === pc_execute1[15:1] | waddr === pc
 wire isLd_needsFlush = isLd === 1 & ((target == ra_e1 & isLd_e1 === 1) | (target == ra_e2 & isLd_e2 === 1));
 
 
-wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush) & valid_execute2;
+wire isFlushing = ((pc_real != pc_execute1) | isSt === 1 | isLd === 1) & valid_execute2;
 
 wire isValidIns = isSub_wb | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | (valid_execute2 === 0);
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
@@ -326,15 +326,13 @@ wire printing = updateRegs & (target == 0) & (valid_execute2 === 1);
 
 wire debugging = 0;
 
-wire[15:0] pc_real = (isJumping === 1 & valid_execute2 === 1) ? vt_wb :
-	       ((isSt_needsFlush === 1 | isLd_needsFlush === 1) & (valid_execute2 === 1)) ? pc_execute2 + 2 :
-	       pc_execute2 + 2;
+wire[15:0] pc_real = (isJumping === 1 & valid_execute2 === 1) ? vt_wb : pc_execute2 + 2;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin     
 		pc <= isFlushing === 1 ? pc_real : predicted;
 		if(isFlushing === 1 & isJumping === 1 & valid_execute2 === 1)
-			predictor_table[pc_execute2[10:1]] = {1'b1, pc_real};
+			predictor_table[pc_execute2[10:1]] <= {1'b1, pc_real};
 		if (updateRegs & (target == 0) & (valid_execute2 === 1))
 			$write("%c", regs_wdata[7:0]);
 	end else begin
@@ -351,10 +349,9 @@ always @(posedge clk) begin
 
 		$write("pc_execute1 = %x\n", pc_execute1);
 		$write("pc_real = %x\n", pc_real);
-		$write("isFlushing = %b\n", isFlushing);
-		$write("isSt_needsFlush = %b\n", isSt_needsFlush);
-		$write("isLd_needsFlush = %b\n", isLd_needsFlush);
-
+		$write("raddr1 = %x\n", raddr1);
+		$write("rdata1 = %x\n", rdata1);
+		$write("wen = %b\n", wen);
 //		$write("waddr = %x\n", waddr);
 //		$write("wdata = %x\n", wdata);
 //		$write("wen = %b\n", wen);
