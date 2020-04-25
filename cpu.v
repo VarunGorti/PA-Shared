@@ -115,14 +115,14 @@ always @(posedge clk) begin
 end
 
 assign raddr1 = instruction_execute0[11:8] == 0 ? 0 :
-	(regs_addr0 === target_e1) & regs_wen_e1 ? reg_out_e1[15:1] :
-	(regs_addr0 === target_e2) & regs_wen_e2 ? reg_out_e2[15:1] :
-	(regs_addr0 === target) & regs_wen ? reg_out[15:1] :
+//	(regs_addr0 === target_e1) & regs_wen_e1 ? reg_out_e1[15:1] :
+	(regs_addr0_execute0 === target_e2) & regs_wen_e2 ? reg_out_e2[15:1] :
+	(regs_addr0_execute0 === target) & regs_wen ? reg_out[15:1] :
 	regs_data0[15:1];
 
-wire forward_e1 = (regs_addr0 === target_e1) & regs_wen_e1; 
-wire forward_e2 = (regs_addr0 === target_e2) & regs_wen_e2; 
-wire forward_wb = (regs_addr0 === target) & regs_wen; 
+wire forward_e1 = (regs_addr0_execute0 === target_e1) & regs_wen_e1; 
+wire forward_e2 = (regs_addr0_execute0 === target_e2) & regs_wen_e2; 
+wire forward_wb = (regs_addr0_execute0 === target) & regs_wen; 
 
 
 // ========================================= EXECUTE 1 ======================
@@ -151,11 +151,11 @@ wire isLd_e1 = (opcode_e1 == 15) & (xop_e1 == 0);
 
 // Note that this does not include LOAD, because if it is a load we can't
 // really forward from this stage in the first place
-wire updateRegs_e1 = (isSub_e1 | isMovl_e1 | isMovh_e1) & valid_execute1;
+wire updateRegs_e1 = (isSub_e1 | isMovl_e1 | isMovh_e1 | isLd_e1) & valid_execute0;
 wire regs_wen_e1 = updateRegs_e1 & (target_e1 != 0); 
 
 wire[15:0] va_e1 = ra_e1 == 0 ? 0 :
-       		   (ra_e1 === target_e2) & regs_wen_e2 ? va_e2 :	
+      	   	   (ra_e1 === target_e2) & regs_wen_e2 ? va_e2 :	
 		   (ra_e1 === regs_waddr) & regs_wen ? reg_out :
 	           regs_data0;
 wire[15:0] vb_e1 = rb_e1 == 0 ? 0 :
@@ -163,7 +163,7 @@ wire[15:0] vb_e1 = rb_e1 == 0 ? 0 :
 		   (rb_e1 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1;
 wire[15:0] vt_e1 = target_e1 == 0 ? 0 : 
-       		   (target_e1 === target_e2) & regs_wen_e2 ? vt_e2 :	
+	       	   (target_e1 === target_e2) & regs_wen_e2 ? vt_e2 :	
 		   (target_e1 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1;
 
@@ -219,7 +219,7 @@ wire isLd_e2 = (opcode_e2 == 15) & (xop_e2 == 0);
 
 // Note that this does not include LOAD, because if it is a load we can't
 // really forward from this stage in the first place
-wire updateRegs_e2 = (isSub_e2 | isMovl_e2 | isMovh_e2) & valid_execute1;
+wire updateRegs_e2 = (isSub_e2 | isMovl_e2 | isMovh_e2 | isLd_e2) & valid_execute1;
 wire regs_wen_e2 = updateRegs_e2 & (target_e2 != 0); 
 
 wire[15:0] va_e2 = ra_e2 == 0 ? 0 : 
@@ -294,7 +294,7 @@ wire isJumping = (isJz & (va_wb == 0)) |
 // This technically also needs to check if these things are valid, although
 // they should always be
 wire isSt_needsFlush = isSt === 1 & ((waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]) |
-				     (va_wb === va_e1 & isLd_e1 === 1) | (va_wb === va_e2 & isLd_e2 === 1));
+				     (isLd_e1 === 1) | (isLd_e2 === 1));
 
 
 // COME BACK to this, can make it more efficient by actually checking the
@@ -302,7 +302,7 @@ wire isSt_needsFlush = isSt === 1 & ((waddr === pc_execute1[15:1] | waddr === pc
 wire isLd_needsFlush = isLd === 1 & ((target == ra_e1 & isLd_e1 === 1) | (target == ra_e2 & isLd_e2 === 1));
 
 
-wire isFlushing = ((pc_real != pc_execute1) | isSt === 1 | isLd === 1) & valid_execute2;
+wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush === 1) & valid_execute2;
 
 wire isValidIns = isSub_wb | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | (valid_execute2 === 0);
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
@@ -328,7 +328,10 @@ wire debugging = 0;
 
 wire[15:0] pc_real = (isJumping === 1 & valid_execute2 === 1) ? vt_wb : pc_execute2 + 2;
 
+reg[9:0] cycles = 0;
+
 always @(posedge clk) begin
+	cycles <= cycles + 1;
 	if(shouldContinue) begin     
 		pc <= isFlushing === 1 ? pc_real : predicted;
 		if(isFlushing === 1 & isJumping === 1 & valid_execute2 === 1)
@@ -347,19 +350,25 @@ always @(posedge clk) begin
 		$write("               Execute 2 = %x  %b  %x\n", pc_execute1, valid_execute1, instruction_execute1);
 		$write("              Write Back = %x  %b  %x\n", pc_execute2, valid_execute2, instruction_execute2);
 
-		$write("pc_execute1 = %x\n", pc_execute1);
-		$write("pc_real = %x\n", pc_real);
+		//$write("cycles = %d\n", cycles);
+		//$write("pc_execute1 = %x\n", pc_execute1);
+		//$write("pc_real = %x\n", pc_real);
 		$write("raddr1 = %x\n", raddr1);
 		$write("rdata1 = %x\n", rdata1);
+		$write("waddr = %x\n", waddr);
+		$write("wdata = %x\n", wdata);
 		$write("wen = %b\n", wen);
-//		$write("waddr = %x\n", waddr);
-//		$write("wdata = %x\n", wdata);
-//		$write("wen = %b\n", wen);
-//		$write("regs_waddr = %x\n", regs_waddr);
-//		$write("regs_wdata = %x\n", regs_wdata);
-//		$write("regs_wen = %b\n", regs_wen);
-//		//$write("printing = %b\n", printing);
-//		$write("isLd = %b\n", isLd);
+		$write("regs_waddr = %x\n", regs_waddr);
+		$write("regs_wdata = %x\n", regs_wdata);
+		$write("regs_wen = %b\n", regs_wen);
+//		$write("printing = %b\n", printing);
+		$write("forward_e2 = %b\n", forward_e2);	
+		$write("regs_addr0_execute0 = %x\n", regs_addr0_execute0);
+		$write("target_e2 = %x\n", target_e2);
+		$write("forward_wb = %b\n", forward_wb);
+//		$write("regs_wen_e1 = %b\n", regs_wen_e1);
+//		$write("reg_out_e1 = %x\n", reg_out_e1);
+//		$write("printVal = %c\n", regs_wdata[7:0]);
 //		$write("rdata1 = %x\n", rdata1);
 		
 //		$write("raddr1 = %x\n", raddr1);
