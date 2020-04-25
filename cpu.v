@@ -302,7 +302,7 @@ wire isSt_needsFlush = isSt === 1 & ((waddr === pc_execute1[15:1] | waddr === pc
 wire isLd_needsFlush = isLd === 1 & ((target == ra_e1 & isLd_e1 === 1) | (target == ra_e2 & isLd_e2 === 1));
 
 
-wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush === 1) & valid_execute2;
+wire isFlushing = ((pc_real != pc_execute1) | isSt === 1 | isLd === 1) & valid_execute2;
 
 wire isValidIns = isSub_wb | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | (valid_execute2 === 0);
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
