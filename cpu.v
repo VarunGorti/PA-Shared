@@ -220,7 +220,6 @@ always @(posedge clk) begin
 		instruction_execute2 <= instruction_execute1;
 
 		valid_execute2 <= isFlushing === 1 ? 0 : valid_execute1;
-
 	end
 end
 
@@ -258,13 +257,10 @@ wire isJumping = (isJz & (va_wb == 0)) |
 // This technically also needs to check if these things are valid, although
 // they should always be
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1] |
-	isLd_e1 === 1 | isLd_e2 === 1);
+	(isLd_e1 === 1) | (isLd_e2 === 1 & waddr === va_e2));
 
 
-// COME BACK to this, can make it more efficient by actually checking the
-// memory addresses
 wire isLd_needsFlush = isLd === 1 & ((target == ra_e1 & isLd_e1 === 1) | (target == ra_e2 & isLd_e2 === 1));
-
 
 wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush === 1) & valid_execute2;
 
@@ -299,50 +295,6 @@ always @(posedge clk) begin
 			$write("%c", regs_wdata[7:0]);
 	end else begin
 		halt <= 1;
-	end
-
-	if(debugging) begin
-		$write("**********************pc = %x\n", pc);
-		$write("                 Fetch 1 = %x  %b\n", pc_fetch0, valid_fetch0);
-		$write("               Execute 0 = %x  %b  %x\n", pc_fetch1, valid_fetch1, instruction);
-		$write("               Execute 1 = %x  %b  %x\n", pc_execute0, valid_execute0, instruction_execute0);
-		$write("               Execute 2 = %x  %b  %x\n", pc_execute1, valid_execute1, instruction_execute1);
-		$write("              Write Back = %x  %b  %x\n", pc_execute2, valid_execute2, instruction_execute2);
-
-		//$write("cycles = %d\n", cycles);
-		//$write("pc_execute1 = %x\n", pc_execute1);
-		//$write("pc_real = %x\n", pc_real);
-		$write("raddr1 = %x\n", raddr1);
-		$write("rdata1 = %x\n", rdata1);
-		$write("waddr = %x\n", waddr);
-		$write("wdata = %x\n", wdata);
-		$write("wen = %b\n", wen);
-		$write("regs_waddr = %x\n", regs_waddr);
-		$write("regs_wdata = %x\n", regs_wdata);
-		$write("regs_wen = %b\n", regs_wen);
-		//		$write("printing = %b\n", printing);
-		$write("forward_e2 = %b\n", forward_e2);	
-		$write("regs_addr0_execute0 = %x\n", regs_addr0_execute0);
-		$write("target_e2 = %x\n", target_e2);
-		$write("forward_wb = %b\n", forward_wb);
-		//		$write("regs_wen_e1 = %b\n", regs_wen_e1);
-		//		$write("reg_out_e1 = %x\n", reg_out_e1);
-		//		$write("printVal = %c\n", regs_wdata[7:0]);
-		//		$write("rdata1 = %x\n", rdata1);
-
-		//		$write("raddr1 = %x\n", raddr1);
-		//		$write("instruction = %x\n", instruction);
-		//		$write("regs_data0 = %x\n", regs_data0);
-
-		//		$write("regs_addr0 = %x\n", regs_addr0);
-		//		$write("forward_e1 = %b\n", forward_e1);
-		//		$write("forward_e2 = %b\n", forward_e2);
-		//		$write("forward_wb = %b\n", forward_wb);
-		//		$write("isJumping = %b\n", isJumping);
-		//$write("va_wb = %x\n", va_wb);
-		//$write("vb_wb = %x\n", vb_wb);
-		//$write("vt_wb = %x\n", vt_wb);
-		$write("\n");
 	end
 end
 
