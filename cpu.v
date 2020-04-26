@@ -105,11 +105,15 @@ always @(posedge clk) begin
 	end
 end
 
+// If the register we were waiting on was 0, set it to 0
+// Otherwise either use the forwarded data, if it exists, or just the thing
+// coming out of the register file
 assign raddr1 = instruction_execute0[11:8] == 0 ? 0 :
 	forward_e2 ? reg_out_e2[15:1] :
 	forward_wb ? reg_out[15:1] :
 	regs_data0[15:1];
 
+// Helper wires to indicate if data was forwarded
 wire forward_e2 = regs_addr0_execute0 === target_e2 & regs_wen_e2; 
 wire forward_wb = regs_addr0_execute0 === target & regs_wen; 
 
@@ -125,25 +129,8 @@ reg valid_execute1;
 reg[15:1] raddr1_execute1;
 
 wire[3:0] opcode_e1 = instruction_execute0[15:12];
-wire[7:0] imm_e1 = instruction_execute0[11:4];
 wire[3:0] xop_e1 = instruction_execute0[7:4];
-wire[3:0] ra_e1 = instruction_execute0[11:8];
-wire[3:0] rb_e1 = instruction_execute0[7:4];
-wire[3:0] target_e1 = instruction_execute0[3:0];
-
-wire isSub_e1 = opcode_e1 == 0;
-wire isMovl_e1 = opcode_e1 == 8;
-wire isMovh_e1 = opcode_e1 == 9;
 wire isLd_e1 = opcode_e1 == 15 & xop_e1 == 0;
-
-// Note that this does not include LOAD, because if it is a load we can't
-// really forward from this stage in the first place
-wire updateRegs_e1 = (isSub_e1 | isMovl_e1 | isMovh_e1 | isLd_e1) & valid_execute0;
-wire regs_wen_e1 = updateRegs_e1 & target_e1 != 0; 
-
-wire[15:0] va_e1 = ra_e1 == 0 ? 0 :
-	ra_e1 === regs_waddr & regs_wen ? reg_out :
-	regs_data0;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
@@ -184,13 +171,15 @@ wire[3:0] ra_e2 = instruction_execute1[11:8];
 wire[3:0] rb_e2 = instruction_execute1[7:4];
 wire[3:0] target_e2 = instruction_execute1[3:0];
 
+// Here we want to calculate the output value, or at least what it would be if
+// this instruction is not a load. This is to ensure that this value can be
+// forwarded back so that our load instruction farther back in the pipeline
+// does not run into data hazards and can read from the correct memory address
 wire isSub_e2 = (opcode_e2 == 0);
 wire isMovl_e2 = (opcode_e2 == 8);
 wire isMovh_e2 = (opcode_e2 == 9);
 wire isLd_e2 = (opcode_e2 == 15) & (xop_e2 == 0);
 
-// Note that this does not include LOAD, because if it is a load we can't
-// really forward from this stage in the first place
 wire updateRegs_e2 = (isSub_e2 | isMovl_e2 | isMovh_e2 | isLd_e2) & valid_execute1;
 wire regs_wen_e2 = updateRegs_e2 & target_e2 != 0; 
 
@@ -258,24 +247,32 @@ wire isJumping = (isJz & (va_wb == 0)) |
 	(isJns & (va_wb[15] == 0));
 
 
-// Check if there is some self-modfying code here
+// Check if there is some self-modfying code here, if there is or there is
+// a previous load then just flush the pipeline
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1] |
 	isLd_e1 === 1 | isLd_e2 === 1);
 
+// If this is a load, and either of the previous two are loads, just flush the
+// whole thing
 wire isLd_needsFlush = isLd === 1 & (isLd_e1 === 1 | isLd_e2 === 1);
 
+// If any of the above cases are met, flush the pipeline
 wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush === 1) & valid_execute2;
 
+// This is the halting logic, if we get an instruction we don't recognize and
+// its valid bit is set to 0 then we are done executing
 wire isValidIns = isSub_wb | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
 wire updateRegs = isSub_wb | isMovl | isMovh | isLd;
 
+// Calculate the actual write value
 wire[16:0] reg_out = isSub_wb ? va_wb - vb_wb :
 	isMovl ? { {8{imm[7]}}, imm} :
 	isMovh ? ((vt_wb & 16'hff) | { imm, 8'h0 }) :
 	isLd ? rdata1 :
 	0;
 
+// Write to either the register file or memory, as appropriate
 assign regs_wdata = reg_out;
 assign regs_waddr = target;
 assign regs_wen = updateRegs & (target != 0) & valid_execute2 === 1; 
@@ -284,8 +281,8 @@ assign wen = isSt & (valid_execute2 === 1);
 assign waddr = va_wb[15:1];
 assign wdata = vt_wb;
 
-wire debugging = 0;
-
+// Calculate what the real PC should be, so that we can compare to see if our
+// prediction was correct
 wire[15:0] pc_real = isJumping === 1 & valid_execute2 === 1 ? vt_wb : pc_execute2 + 2;
 
 always @(posedge clk) begin
