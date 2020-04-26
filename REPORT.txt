@@ -3,3 +3,25 @@ Describe the enhancements you made to your p8 implementation. For each:
      - how did it improve correctness?
      - how did it improve CPI?
      - how did it affect your design?
+
+1. Implemented a jump predictor:
+	I implemented a simple one-bit jump predictor, which stores a hash table to associate PC's with the PC that came after them the previous time they were seen. This was critical in being able to pass test cases that required many many jumps (usually a very long loop); whereas with my previous implementation I would have had to flush each time I got to a jump instruction, with my jump predictor I was able to only flush the pipeline twice, at the beginning and the end of the loop. The CPI benefit gained from this was massive, as for a loop with N iterations I now only waste roughly 10 cycles, compared to 5N before. In terms of affecting my design, I had to restructure the logic for deciding the next PC, defaulting to assuming my jump prediction was correct and verifying later. Rather than the write back stage calculating the next PC and setting it, I merely used this as confirmation that my jump predictor was correct.
+
+2. Stopped stalling after every load and store
+	On p8, my implementation was correct but horrendously slow - I would flush the pipeline completely after every store and every load for simplicity. This enhancement did not affect the correctness, but it did greatly improve the CPI. Now, upon discovering a store or a load in the writeback stage, I have logic that decides whether or not the pipeline needs a flush by checking the status of the previous stages. If those previous stages have a load instruction, and that load instruction would already have read from the wrong memory address (and thus ultimately execute an incorrect operation), I flush it to "reset" its progress. This implementation is slightly slower than merely stalling the instruction a little earlier, but took advantage of the design I already had by utilizing the forwarding logic from the write-back stage that already existed. My design became more complicated, but also more efficient as a result of this change.
+
+3. Stopped stalling before loads, using forwarding between stages instead
+	My p8 implementation would, upon discovering a load after the fetch stage, stall the pipeline to allow the instruction in front of it to proceed, avoiding data hazards. This implementation was correct, but again quite wasteful, as the loss of multiple cycles was not even always justified due to the lack of verification that the preceding instructions actually modified the data the load instruction needed. The new implementation implements forwarding when possible to the load instruction (although flushing is still necessary in special cases as described in (2)), and reduces CPI overall. This made my design more complicated, but more easily allowed the implementation of the enhancement described in (2) and sped up the processor a lot. Again, correctness was not really improved here.
+
+4. Internal change - Gave each instruction a valid bit rather than bubbling in no-ops
+	My initial solution to p8 involved bubbling in no-ops (e010 was chosen) as a way to create bubbles and flush the pipeline. While technically okay, this solution was a bit of a hack and had the potential for problems with the jump predictor. Between p8 and p9 I swapped over to using the valid bit implementation described in class to identify whether or not instructions should be executed, and stopped using this no-op structure. This made implementing many of the above much easier, particularly the forwarding, as there was a potential for no-ops carrying values (as they used to be real instructions) and then passing invalid data back to instructions earlier in the pipeline. This change did not really improve correctness or CPI, but it did affect my ability to improve those things by making my design easier to work with and modify.
+
+5. Added an "empty" stage between reading from memory for the second time (for a load instruction) and write_back
+	This change was needed when coupled with the fact that I stopped stalling before loads, because now the memory port would effectively take one more cycle to come back with the data I needed. In that context, this change allowed loads to actually be correct, at the slight cost of time because now each flush of the pipeline was more expensive. This did not have a particularly large effect on my design, other than introducing the need for more forwarding, and slightly increased the CPI overall. This change seems justified when coupled with the jump predictor, which means we have to flush the pipeline far less often than before.
+
+
+Citations:
+I received many ideas from discussion section and lecture.
+I also did "whiteboarding" (Google Doc) of basic ideas on how to improve efficiency with Bo Deng on both p8 and p9.
+
+
