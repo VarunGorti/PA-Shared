@@ -122,6 +122,7 @@ reg[15:0] regs_data1_execute1;
 reg[15:0] pc_execute1;
 reg[15:0] instruction_execute1;
 reg valid_execute1;
+reg[15:1] raddr1_execute1;
 
 wire[3:0] opcode_e1 = instruction_execute0[15:12];
 wire[7:0] imm_e1 = instruction_execute0[11:4];
@@ -159,6 +160,7 @@ always @(posedge clk) begin
 		pc_execute1 <= pc_execute0;
 		instruction_execute1 <= instruction_execute0;
 
+		raddr1_execute1 <= raddr1;
 		valid_execute1 <= isFlushing === 1 ? 0 : valid_execute0;
 	end
 end
@@ -173,6 +175,7 @@ reg[15:0] pc_execute2;
 reg[15:0] instruction_execute2;
 reg[15:0] predicted_pc_execute2;
 reg valid_execute2;
+reg[15:1] raddr1_execute2;
 
 wire[3:0] opcode_e2 = instruction_execute1[15:12];
 wire[7:0] imm_e2 = instruction_execute1[11:4];
@@ -219,6 +222,7 @@ always @(posedge clk) begin
 		pc_execute2 <= pc_execute1;
 		instruction_execute2 <= instruction_execute1;
 
+		raddr1_execute2 <= raddr1_execute1;
 		valid_execute2 <= isFlushing === 1 ? 0 : valid_execute1;
 	end
 end
@@ -254,13 +258,11 @@ wire isJumping = (isJz & (va_wb == 0)) |
 	(isJns & (va_wb[15] == 0));
 
 
-// This technically also needs to check if these things are valid, although
-// they should always be
+// Check if there is some self-modfying code here
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1] |
-	(isLd_e1 === 1) | (isLd_e2 === 1 & waddr === va_e2));
+	isLd_e1 === 1 | isLd_e2 === 1);
 
-
-wire isLd_needsFlush = isLd === 1 & ((target == ra_e1 & isLd_e1 === 1) | (target == ra_e2 & isLd_e2 === 1));
+wire isLd_needsFlush = isLd === 1 & (isLd_e1 === 1 | isLd_e2 === 1);
 
 wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1 | isLd_needsFlush === 1) & valid_execute2;
 
