@@ -155,15 +155,15 @@ wire updateRegs_e1 = (isSub_e1 | isMovl_e1 | isMovh_e1 | isLd_e1) & valid_execut
 wire regs_wen_e1 = updateRegs_e1 & (target_e1 != 0); 
 
 wire[15:0] va_e1 = ra_e1 == 0 ? 0 :
-//      	   	   (ra_e1 === target_e2) & regs_wen_e2 ? va_e2 :	
+      	   	   (ra_e1 === target_e2) & regs_wen_e2 ? va_e2 :	
 		   (ra_e1 === regs_waddr) & regs_wen ? reg_out :
 	           regs_data0;
 wire[15:0] vb_e1 = rb_e1 == 0 ? 0 :
-//       		   (rb_e1 === target_e2) & regs_wen_e2 ? vb_e2 :
+       		   (rb_e1 === target_e2) & regs_wen_e2 ? vb_e2 :
 		   (rb_e1 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1;
 wire[15:0] vt_e1 = target_e1 == 0 ? 0 : 
-//	       	   (target_e1 === target_e2) & regs_wen_e2 ? vt_e2 :	
+	       	   (target_e1 === target_e2) & regs_wen_e2 ? vt_e2 :	
 		   (target_e1 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1;
 
@@ -223,13 +223,13 @@ wire updateRegs_e2 = (isSub_e2 | isMovl_e2 | isMovh_e2 | isLd_e2) & valid_execut
 wire regs_wen_e2 = updateRegs_e2 & (target_e2 != 0); 
 
 wire[15:0] va_e2 = ra_e2 == 0 ? 0 : 
-//		   (ra_e2 === regs_waddr) & regs_wen ? reg_out :
+		   (ra_e2 === regs_waddr) & regs_wen ? reg_out :
 	           regs_data0_execute1;
 wire[15:0] vb_e2 = rb_e2 == 0 ? 0 : 
-//		   (rb_e2 === regs_waddr) & regs_wen ? reg_out :
+		   (rb_e2 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1_execute1;
 wire[15:0] vt_e2 = target_e2 == 0 ? 0 : 
-//		   (target_e2 === regs_waddr) & regs_wen ? reg_out :
+		   (target_e2 === regs_waddr) & regs_wen ? reg_out :
 		   regs_data1_execute1;
 
 wire[16:0] reg_out_e2 = isSub_e2 ? va_e2 - vb_e2 :
@@ -294,7 +294,7 @@ wire isJumping = (isJz & (va_wb == 0)) |
 // This technically also needs to check if these things are valid, although
 // they should always be
 wire isSt_needsFlush = isSt === 1 & ((waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]) |
-				     (isLd_e1 === 1 & regs_waddr === ra_e1) | (isLd_e2 === 1 && regs_waddr === ra_e2));
+				     (isLd_e1 === 1) | (isLd_e2 === 1));
 
 
 // COME BACK to this, can make it more efficient by actually checking the
