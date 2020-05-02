@@ -14,7 +14,10 @@ assign halt_ = halt;
 counter ctr(halt,clk);
 
 // PC
-reg [15:0]pc = 16'h0000;
+reg[15:0] pc;
+initial begin
+    pc = pc_passed[15:0];
+end
 
 assign pc_ = pc;
 //assign rdata0 = rdata0_;
