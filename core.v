@@ -17,17 +17,17 @@ counter ctr(halt,clk);
 reg [15:0]pc = 16'h0000;
 
 assign pc_ = pc;
-assign rdata0_ = rdata0;
+//assign rdata0 = rdata0_;
 assign raddr1_ = raddr1;
-assign rdata1_ = rdata1;
+//assign rdata1 = rdata1_;
 assign wen_ = wen; 
 assign waddr_ = waddr;
 assign wdata_ = wdata;
 
 wire[15:1] raddr0;
-wire[15:0] rdata0;
+wire[15:0] rdata0 = rdata0_;
 wire[15:1] raddr1;
-wire[15:0] rdata1;
+wire[15:0] rdata1 = rdata1_;
 wire wen;
 wire[15:1] waddr;
 wire[15:0] wdata;
@@ -141,14 +141,14 @@ wire ld_stall = isLd_f1 & ((isLd_e0 === 1 & ra === rt_e0 & valid_execute0) | (is
 
 wire stall3 = (st_stall | ld_stall) & valid_fetch1;
 
-wire[2:0] shouldStall = stall6 === 1 ? 6 :
+wire[2:0] internalStall = stall6 === 1 ? 6 :
 			stall5 === 1 ? 5 :
 			stall4 === 1 ? 4 :
 			stall3 === 1 ? 3 :
 			stall2 === 1 ? 2 :
 			stall1 === 1 ? 1 :
 			0;
-
+wire[2:0] shouldStall =  stall_num > internalStall ? stall_num : internalStall;
 always @(posedge clk) begin
 	if(shouldContinue) begin
 		regs_addr0_execute0 <= (shouldStall >= 3) === 1 ? regs_addr0_execute0 : regs_addr0;
