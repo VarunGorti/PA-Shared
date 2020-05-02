@@ -136,7 +136,7 @@ wire isSub_e0 = opcode_e0 == 0;
 wire isAdd_e0 = opcode_e0 == 1;
 wire isCmp_e0 = opcode_e0 == 5;
 
-wire isLd_e0 = opcode_e0 == 15 & xop_e0 == 0;
+wire isLd_e0 = opcode_e0 == 15 & xop_e0 == 0 & valid_execute0 === 1;
 wire isSt_e0 = opcode_e0 == 15 & xop_e0 == 1; 
 
 wire st_stall = isLd_f1 & ((isSt_e0 === 1 & valid_execute0) | (isSt_e1 === 1 & valid_execute1));
@@ -168,11 +168,11 @@ end
 // Otherwise either use the forwarde
 // d data, if it exists, or just the thing
 // coming out of the register file
-assign raddr1 = instruction_execute0[11:8] == 0 ? 0 :
-	forward_e2 ? {isLd_e0, reg_out_e2[15:1]} :
-	forward_wb ? {isLd_e0, reg_out[15:1]} :
-	{isLd_e0, regs_data0[15:1]};
-
+assign raddr1[15:1] = instruction_execute0[11:8] == 0 ? 0 :
+	forward_e2 ? reg_out_e2[15:1] :
+	forward_wb ? reg_out[15:1] :
+	regs_data0[15:1];
+assign raddr1[16] = isLd_e0;
 // Helper wires to indicate if data was forwarded
 wire forward_e2 = regs_addr0_execute0 === rt_e2 & regs_wen_e2; 
 wire forward_wb = regs_addr0_execute0 === rt & regs_wen; 
