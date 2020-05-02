@@ -2,7 +2,7 @@
 
 module core(input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num,
 	    output[15:0] pc_, input[15:0] rdata0_,
-    	    output[15:1] raddr1_, input[15:0] rdata1_,
+    	    output[16:1] raddr1_, input[16:0] rdata1_,
     	    output wen_, output[15:1] waddr_, output[15:0] wdata_);
 
 // clock
@@ -29,8 +29,8 @@ assign wdata_ = wdata;
 
 wire[15:1] raddr0;
 wire[15:0] rdata0 = rdata0_;
-wire[15:1] raddr1;
-wire[15:0] rdata1 = rdata1_;
+wire[16:1] raddr1;
+wire[16:0] rdata1 = rdata1_;
 wire wen;
 wire[15:1] waddr;
 wire[15:0] wdata;
@@ -169,9 +169,9 @@ end
 // d data, if it exists, or just the thing
 // coming out of the register file
 assign raddr1 = instruction_execute0[11:8] == 0 ? 0 :
-	forward_e2 ? reg_out_e2[15:1] :
-	forward_wb ? reg_out[15:1] :
-	regs_data0[15:1];
+	forward_e2 ? {isLd_e0, reg_out_e2[15:1]} :
+	forward_wb ? {isLd_e0, reg_out[15:1]} :
+	{isLd_e0, regs_data0[15:1]};
 
 // Helper wires to indicate if data was forwarded
 wire forward_e2 = regs_addr0_execute0 === rt_e2 & regs_wen_e2; 
@@ -186,7 +186,7 @@ reg[15:0] regs_data1_execute1;
 reg[15:0] pc_execute1;
 reg[15:0] instruction_execute1;
 reg valid_execute1;
-reg[15:1] raddr1_execute1;
+reg[16:1] raddr1_execute1;
 
 wire[3:0] opcode_e1 = instruction_execute0[15:12];
 wire[3:0] xop_e1 = instruction_execute0[7:4];
@@ -231,7 +231,7 @@ reg[15:0] pc_execute2;
 reg[15:0] instruction_execute2;
 reg[15:0] predicted_pc_execute2;
 reg valid_execute2;
-reg[15:1] raddr1_execute2;
+reg[16:1] raddr1_execute2;
 
 wire[3:0] opcode_e2 = instruction_execute1[15:12];
 wire[7:0] imm_e2 = instruction_execute1[11:4];
@@ -334,7 +334,7 @@ wire isJumping = (isJz & (va_wb == 0)) |
 
 wire[15:0] ld_out = data_copy[16] === 1 ? data_copy[15:0] :
 		    buffer_wb[16] === 1 ? buffer_wb[15:0] :
-		    rdata1;
+		    rdata1[15:0];
 // Check if there is some self-modfying code here, if there is or there is
 // a previous load then just flush the pipeline
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]);
@@ -393,8 +393,8 @@ always @(posedge clk) begin
 		if (updateRegs & (rt_wb == 0) & valid_execute2 === 1 & (stall6 !== 1))
 			$write("%c", regs_wdata[7:0]);
 
-		buffer_wb <= data_copy[16] === 1 ? buffer_wb[16] === 1 ? buffer_wb : {1'b1, rdata1} : 17'b0;
-		data_copy[15:0] <= rdata1;
+		buffer_wb <= data_copy[16] === 1 ? buffer_wb[16] === 1 ? buffer_wb : {1'b1, rdata1[15:0]} : 17'b0;
+		data_copy[15:0] <= rdata1[15:0];
 		data_copy[16] <= (shouldStall >= 6) === 1;
 
 	end else begin
