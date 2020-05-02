@@ -14,7 +14,7 @@ wire halt1;
 wire halt2;
 
 wire[16:0] pc_passed_1 = 17'b0;
-wire[16:0] pc_passed_2 = 17'h100;
+wire[16:0] pc_passed_2 = 17'h200;
 
 wire[2:0] stall_num_1 = 3'b0;
 wire[2:0] stall_num_2 = 3'b0;
