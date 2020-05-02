@@ -9,7 +9,7 @@ RESULTS = $(patsubst %.ok,%.test,$(OK))
 
 cpu : $(VFILES) Makefile
 	iverilog -o cpu $(VFILES)
-
+ 
 test : $(RESULTS)
 
 clean :
