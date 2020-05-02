@@ -32,7 +32,7 @@ module mem(input clk,
     always @(posedge clk) begin
         raddr0 <= raddr0_;
         raddr1 <= raddr1_;
-	raddr2 <= isReading_coreA ? {1'b0, raddr2_a} : {1'b1, raddr2_b};
+	raddr2 <= isReading_coreB ? {1'b1, raddr2_b} : {1'b0, raddr2_a};
         rdata0 <= data[raddr0];
         rdata1 <= data[raddr1];
 	// At some point this needs to be random

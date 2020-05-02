@@ -16,9 +16,9 @@ wire halt2;
 wire[16:0] pc_passed_1 = 17'b0;
 wire[16:0] pc_passed_2 = 17'h200;
 
-wire[2:0] stall_num_1 = 3'b0;
-wire[2:0] stall_num_2;
-assign stall_num_2 = raddr1_1[16] === 1 & raddr1_2[16] === 1 ? 3 : 0;
+wire[2:0] stall_num_2 = 3'b0;
+wire[2:0] stall_num_1;
+assign stall_num_1 = raddr1_1[16] === 1 & raddr1_2[16] === 1 ? 3 : 0;
 
 wire[15:0] pc_1;
 wire[15:0] rdata0_1;
