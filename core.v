@@ -3,21 +3,20 @@
 module core(input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num,
 	    output[15:0] pc_, input[15:0] rdata0_,
     	    output[16:1] raddr1_, input[16:0] rdata1_,
-    	    output wen_, output[15:1] waddr_, output[15:0] wdata_);
+    	    output wen_, output[15:1] waddr_, output[15:0] wdata_,
+    	    input debug);
 
 // clock
 //clock c0(clk);
-
-reg halt = 0;
-assign halt_ = halt;
-
-counter ctr(halt,clk);
 
 // PC
 reg[15:0] pc;
 initial begin
     pc = pc_passed[15:0];
 end
+
+reg halt = 0;
+assign halt_ = halt;
 
 assign pc_ = pc;
 //assign rdata0 = rdata0_;
@@ -71,7 +70,9 @@ wire stall1 = 0;
 
 always @(posedge clk) begin
 	pc_fetch0 <= (shouldStall >= 1) === 1 ? pc_fetch0 : pc;
-	valid_fetch0 <= !(isFlushing === 1 | shouldStall === 1);
+	valid_fetch0 <= isFlushing === 1 | shouldStall === 1 ? 0 :
+			shouldStall >= 1 ? valid_fetch0 :
+			1;
 end
 
 // ================================= FETCH 1 ================================
@@ -85,7 +86,9 @@ wire stall2 = 0;
 always @(posedge clk) begin
 	if(shouldContinue) begin
 		pc_fetch1 <= (shouldStall >= 2) === 1 ? pc_fetch1 : pc_fetch0;
-		valid_fetch1 <= (isFlushing === 1 | shouldStall === 2) ? 0 : valid_fetch0;
+		valid_fetch1 <= (isFlushing === 1 | shouldStall === 2) ? 0 :
+				shouldStall >= 2 ? valid_fetch1: 
+				valid_fetch0;
 		
 		buffer_f1 <= instruction_copy[16] === 1 ? buffer_f1[16] === 1 ? buffer_f1 : {1'b1, rdata0} : 17'b0;
 		instruction_copy[15:0] <= instruction;
@@ -160,7 +163,9 @@ always @(posedge clk) begin
 		pc_execute0 <= (shouldStall >= 3) === 1 ? pc_execute0 : pc_fetch1;
 		instruction_execute0 <= (shouldStall >= 3) === 1 ? instruction_execute0 : instruction;
 
-		valid_execute0 <= (isFlushing === 1 | shouldStall === 3) ? 0 : valid_fetch1;
+		valid_execute0 <= (isFlushing === 1 | shouldStall === 3) ? 0 :
+				  shouldStall >= 3 ? valid_execute0 : 
+				  valid_fetch1;
 	end
 end
 
@@ -216,7 +221,9 @@ always @(posedge clk) begin
 		instruction_execute1 <= (shouldStall >= 4) === 1 ? instruction_execute1 : instruction_execute0;
 
 		raddr1_execute1 <= (shouldStall >= 4) === 1 ? raddr1_execute1 : raddr1;
-		valid_execute1 <= (isFlushing === 1 | shouldStall === 4) ? 0 : valid_execute0;
+		valid_execute1 <= (isFlushing === 1 | shouldStall === 4) ? 0 :
+				  shouldStall >= 4 ? valid_execute1 : 
+				  valid_execute0;
 	end
 end
 
@@ -294,7 +301,9 @@ always @(posedge clk) begin
 		instruction_execute2 <= (shouldStall >= 5) === 1 ? instruction_execute2 : instruction_execute1;
 
 		raddr1_execute2 <= (shouldStall >= 5) === 1 ? raddr1_execute2 : raddr1_execute1;
-		valid_execute2 <= (isFlushing === 1 | shouldStall === 5) ? 0 : valid_execute1;
+		valid_execute2 <= (isFlushing === 1 | shouldStall === 5) ? 0 :
+				  shouldStall >= 5 ? valid_execute2 : 
+				  valid_execute1;
 	end
 end
 
@@ -367,9 +376,10 @@ wire[16:0] reg_out = isSub ? va_wb - vb_wb :
 // Write to either the register file or memory, as appropriate
 assign regs_wdata = reg_out;
 assign regs_waddr = rt_wb;
-assign regs_wen = updateRegs & (rt_wb != 0) & valid_execute2 === 1 & (stall6 !== 1); 
+assign regs_wen = updateRegs & (rt_wb != 0) & valid_execute2 === 1 & (shouldStall !== 6); 
 
-assign wen = isSt & (valid_execute2 === 1) & (stall6 !== 1);	
+assign wen = isSt & (valid_execute2 === 1); 
+//& (shouldStall !== 6);	
 assign waddr = va_wb[15:1];
 assign wdata = vt_wb;
 
@@ -381,7 +391,7 @@ reg[16:0] data_copy;
 // Calculate what the real PC should be, so that we can compare to see if our
 // prediction was correct
 wire[15:0] pc_real = isJumping === 1 & valid_execute2 === 1 ? vt_wb : pc_execute2 + 2;
-wire debugging = 0;
+wire debugging = debug;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
@@ -390,7 +400,7 @@ always @(posedge clk) begin
 			predicted;
 		if(isFlushing === 1 & isJumping === 1 & valid_execute2 === 1)
 			predictor_table[pc_execute2[10:1]] <= {1'b1, pc_real};
-		if (updateRegs & (rt_wb == 0) & valid_execute2 === 1 & (stall6 !== 1))
+		if (updateRegs & (rt_wb == 0) & valid_execute2 === 1 & (shouldStall !== 6))
 			$write("%c", regs_wdata[7:0]);
 
 		buffer_wb <= data_copy[16] === 1 ? buffer_wb[16] === 1 ? buffer_wb : {1'b1, rdata1[15:0]} : 17'b0;
