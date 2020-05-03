@@ -325,7 +325,7 @@ wire isDec = opcode_wb == 3;
 wire isCmp = opcode_wb == 5;
 
 wire isPause = opcode_wb == 6 & xop_wb == 1;
-wire isResume = opcode_wb == 6 & xop_wb = 2;
+wire isResume = opcode_wb == 6 & xop_wb == 2;
 
 wire isMovl = opcode_wb == 8;
 wire isMovh = opcode_wb == 9;

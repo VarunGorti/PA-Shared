@@ -37,7 +37,7 @@ wire wen_1;
 wire[15:1] waddr_1;
 wire[15:0] wdata_1;
 wire[2:0] pauseResume_1;
-wire debug_1 = 0;
+wire debug_1 = 1;
 
 wire[15:0] pc_2;
 wire[15:0] rdata0_2;
