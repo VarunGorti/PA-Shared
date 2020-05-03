@@ -4,6 +4,7 @@ module core(input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num
 	    output[15:0] pc_, input[15:0] rdata0_,
     	    output[16:1] raddr1_, input[16:0] rdata1_,
     	    output wen_, output[15:1] waddr_, output[15:0] wdata_,
+	    output[2:0] pauseResume,
     	    input debug);
 
 // clock
@@ -322,6 +323,10 @@ wire isAdd = opcode_wb == 1;
 wire isInc = opcode_wb == 2;
 wire isDec = opcode_wb == 3;
 wire isCmp = opcode_wb == 5;
+
+wire isPause = opcode_wb == 6 & xop_wb == 1;
+wire isResume = opcode_wb == 6 & xop_wb = 2;
+
 wire isMovl = opcode_wb == 8;
 wire isMovh = opcode_wb == 9;
 wire isLd = opcode_wb == 15 & xop_wb == 0;
@@ -347,7 +352,6 @@ wire[15:0] ld_out = data_copy[16] === 1 ? data_copy[15:0] :
 // Check if there is some self-modfying code here, if there is or there is
 // a previous load then just flush the pipeline
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]);
-//	isLd_e1 === 1 | isLd_e2 === 1);
 
 // If this is a load, and either of the previous two are loads, just flush the
 // whole thing
@@ -358,7 +362,7 @@ wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1) & valid_exe
 
 // This is the halting logic, if we get an instruction we don't recognize and
 // its valid bit is set to 0 then we are done executing
-wire isValidIns = isSub | isAdd | isInc | isDec | isCmp | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
+wire isValidIns = isSub | isAdd | isInc | isDec | isCmp | isPause | isResume | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
 wire updateRegs = isSub | isAdd | isInc | isDec | isCmp | isMovl | isMovh | isLd;
 
@@ -382,6 +386,13 @@ assign wen = isSt & (valid_execute2 === 1);
 //& (shouldStall !== 6);	
 assign waddr = va_wb[15:1];
 assign wdata = vt_wb;
+
+// 1st bit is valid bit, 2nd bit is 0 for pause, 1 for resume, last bit is
+// which core
+//wire[2:0] pauseResume;
+assign pauseResume[2] = (isPause === 1 | isResume === 1) & valid_execute2 === 1;
+assign pauseResume[1] = isResume === 1;
+assign pauseResume[0] = va_wb[0];
 
 // Not really going to be used for right now
 wire stall6 = 0;
