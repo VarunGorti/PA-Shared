@@ -10,11 +10,16 @@ end
 wire clk;
 clock c0(clk);
 
-wire halt1;
-wire halt2;
+wire[16:0] pc_passed_1 = first_cycle === 1 ? {1'b1, 16'h0} :
+			 pc_out_1[17:16] === 2'b10 ? {1'b1, pc_out_1[15:0]} :
+			 pc_out_2[17:16] === 2'b10 ? {1'b1, pc_out_2[15:0]} :
+			 0;
+wire[16:0] pc_passed_2 = first_cycle === 1 ? 0 :
+			 pc_out_1[17:16] === 2'b11 ? {1'b1, pc_out_1[15:0]} :
+			 pc_out_2[17:16] === 2'b11 ? {1'b1, pc_out_2[15:0]} :
+			 0;
 
-wire[16:0] pc_passed_1 = 17'h0;
-wire[16:0] pc_passed_2 = 17'h200;
+reg first_cycle = 1;
 
 wire[2:0] stall_num_1;
 assign stall_num_1 = pauseResume_1 === 3'b100 | pauseResume_2 === 3'b100 ? 6 :
@@ -27,7 +32,6 @@ assign stall_num_2 = pauseResume_1 === 3'b101 | pauseResume_2 === 3'b101 ? 6 :
 	raddr1_1[16] === 1 & raddr1_2[16] === 1 ? 3 : 
 	0;
 
-
 wire debug_mem = 0;
 
 wire[15:0] pc_1;
@@ -37,6 +41,8 @@ wire wen_1;
 wire[15:1] waddr_1;
 wire[15:0] wdata_1;
 wire[2:0] pauseResume_1;
+wire[17:0] pc_out_1;
+wire awake_1;
 wire debug_1 = 0;
 
 wire[15:0] pc_2;
@@ -46,6 +52,8 @@ wire wen_2;
 wire[15:1] waddr_2;
 wire[15:0] wdata_2;
 wire[2:0] pauseResume_2;
+wire[17:0] pc_out_2;
+wire awake_2;
 wire debug_2 = 0;
 
 wire[16:0] rdata1;
@@ -66,21 +74,21 @@ core core1(clk, halt_1, pc_passed_1, stall_num_1,
 	pc_1, rdata0_1,
 	raddr1_1, rdata1,
 	wen_1, waddr_1, wdata_1,
-	pauseResume_1,
+	pauseResume_1, pc_out_1, awake_1,
 	debug_1);
 
 core core2(clk, halt_2, pc_passed_2, stall_num_2,
 	pc_2, rdata0_2,
 	raddr1_2, rdata1,
 	wen_2, waddr_2, wdata_2,
-	pauseResume_2,
+	pauseResume_2, pc_out_2, awake_2,
 	debug_2);
 
 reg halt = 0;
 counter ctr(halt, clk);
 
 always @(posedge clk) begin
-	if(halt_1 === 1 & halt_2 === 1)
+	if((halt_1 === 1 | awake_1 !== 1) & (halt_2 === 1 | awake_2 !==1))
 		halt <= 1;
 	pauseResume[0] <= pauseResume_1[2] === 1 & pauseResume_1[0] === 0 ? pauseResume_1[1] : 
 			  pauseResume_2[2] === 1 & pauseResume_2[0] === 0 ? pauseResume_2[1] :
@@ -88,6 +96,7 @@ always @(posedge clk) begin
 	pauseResume[1] <= pauseResume_1[2] === 1 & pauseResume_1[0] === 1 ? pauseResume_1[1] : 
 			  pauseResume_2[2] === 1 & pauseResume_2[0] === 1 ? pauseResume_2[1] :
 			  pauseResume[1];	
+	first_cycle <= 0;
 end
 
 endmodule

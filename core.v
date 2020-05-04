@@ -1,25 +1,25 @@
 `timescale 1ps/1ps
 
 module core(input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num,
-	    output[15:0] pc_, input[15:0] rdata0_,
-    	    output[16:1] raddr1_, input[16:0] rdata1_,
-    	    output wen_, output[15:1] waddr_, output[15:0] wdata_,
-	    output[2:0] pauseResume,
-    	    input debug);
+	output[15:0] pc_, input[15:0] rdata0_,
+	output[16:1] raddr1_, input[16:0] rdata1_,
+	output wen_, output[15:1] waddr_, output[15:0] wdata_,
+	output[2:0] pauseResume, output[17:0] pc_out, output awake,
+	input debug);
 
 // clock
 //clock c0(clk);
 
 // PC
 reg[15:0] pc;
-initial begin
-    pc = pc_passed[15:0];
-end
+assign pc_ = pc;
+
+reg isAwake = 0;
+assign awake = isAwake | pc_passed[16] === 1;
 
 reg halt = 0;
 assign halt_ = halt;
 
-assign pc_ = pc;
 //assign rdata0 = rdata0_;
 assign raddr1_ = raddr1;
 //assign rdata1 = rdata1_;
@@ -72,8 +72,8 @@ wire stall1 = 0;
 always @(posedge clk) begin
 	pc_fetch0 <= (shouldStall >= 1) === 1 ? pc_fetch0 : pc;
 	valid_fetch0 <= isFlushing === 1 | shouldStall === 1 ? 0 :
-			shouldStall >= 1 ? valid_fetch0 :
-			1;
+		shouldStall >= 1 ? valid_fetch0 :
+		1;
 end
 
 // ================================= FETCH 1 ================================
@@ -88,9 +88,9 @@ always @(posedge clk) begin
 	if(shouldContinue) begin
 		pc_fetch1 <= (shouldStall >= 2) === 1 ? pc_fetch1 : pc_fetch0;
 		valid_fetch1 <= (isFlushing === 1 | shouldStall === 2) ? 0 :
-				shouldStall >= 2 ? valid_fetch1: 
-				valid_fetch0;
-		
+			shouldStall >= 2 ? valid_fetch1: 
+			valid_fetch0;
+
 		buffer_f1 <= instruction_copy[16] === 1 ? buffer_f1[16] === 1 ? buffer_f1 : {1'b1, rdata0} : 17'b0;
 		instruction_copy[15:0] <= instruction;
 		instruction_copy[16] <= (shouldStall >= 2) === 1;
@@ -100,9 +100,9 @@ end
 reg[16:0] buffer_f1;
 
 wire[15:0] instruction = instruction_copy[16] === 1 ? instruction_copy[15:0] : 
-			 buffer_f1[16] === 1 ? buffer_f1[15:0] : 
-			 rdata0;
-	      
+	buffer_f1[16] === 1 ? buffer_f1[15:0] : 
+	rdata0;
+
 
 wire[3:0] opcode = instruction[15:12];
 wire[3:0] xop = instruction[7:4];
@@ -149,12 +149,12 @@ wire ld_stall = isLd_f1 & ((isLd_e0 === 1 & ra === rt_e0 & valid_execute0) | (is
 wire stall3 = (st_stall | ld_stall) & valid_fetch1;
 
 wire[2:0] internalStall = stall6 === 1 ? 6 :
-			stall5 === 1 ? 5 :
-			stall4 === 1 ? 4 :
-			stall3 === 1 ? 3 :
-			stall2 === 1 ? 2 :
-			stall1 === 1 ? 1 :
-			0;
+	stall5 === 1 ? 5 :
+	stall4 === 1 ? 4 :
+	stall3 === 1 ? 3 :
+	stall2 === 1 ? 2 :
+	stall1 === 1 ? 1 :
+	0;
 wire[2:0] shouldStall =  stall_num > internalStall ? stall_num : internalStall;
 always @(posedge clk) begin
 	if(shouldContinue) begin
@@ -165,8 +165,8 @@ always @(posedge clk) begin
 		instruction_execute0 <= (shouldStall >= 3) === 1 ? instruction_execute0 : instruction;
 
 		valid_execute0 <= (isFlushing === 1 | shouldStall === 3) ? 0 :
-				  shouldStall >= 3 ? valid_execute0 : 
-				  valid_fetch1;
+			shouldStall >= 3 ? valid_execute0 : 
+			valid_fetch1;
 	end
 end
 
@@ -212,7 +212,7 @@ always @(posedge clk) begin
 			regs_addr0_execute0 == 0 ? 16'b0 :
 			regs_addr0_execute0 == regs_waddr & regs_wen ? reg_out :
 			regs_data0;  
- 
+
 		regs_data1_execute1 <= (shouldStall >= 4) === 1 ? regs_data1_execute1 :
 			regs_addr1_execute0 === 0 ? 16'b0 :
 			regs_addr1_execute0 === regs_waddr & regs_wen ? reg_out :
@@ -223,8 +223,8 @@ always @(posedge clk) begin
 
 		raddr1_execute1 <= (shouldStall >= 4) === 1 ? raddr1_execute1 : raddr1;
 		valid_execute1 <= (isFlushing === 1 | shouldStall === 4) ? 0 :
-				  shouldStall >= 4 ? valid_execute1 : 
-				  valid_execute0;
+			shouldStall >= 4 ? valid_execute1 : 
+			valid_execute0;
 	end
 end
 
@@ -303,8 +303,8 @@ always @(posedge clk) begin
 
 		raddr1_execute2 <= (shouldStall >= 5) === 1 ? raddr1_execute2 : raddr1_execute1;
 		valid_execute2 <= (isFlushing === 1 | shouldStall === 5) ? 0 :
-				  shouldStall >= 5 ? valid_execute2 : 
-				  valid_execute1;
+			shouldStall >= 5 ? valid_execute2 : 
+			valid_execute1;
 	end
 end
 
@@ -324,6 +324,7 @@ wire isInc = opcode_wb == 2;
 wire isDec = opcode_wb == 3;
 wire isCmp = opcode_wb == 5;
 
+wire isAwaken = opcode_wb == 6 & xop_wb == 0;
 wire isPause = opcode_wb == 6 & xop_wb == 1;
 wire isResume = opcode_wb == 6 & xop_wb == 2;
 
@@ -347,8 +348,8 @@ wire isJumping = (isJz & (va_wb == 0)) |
 	(isJns & (va_wb[15] == 0));
 
 wire[15:0] ld_out = data_copy[16] === 1 ? data_copy[15:0] :
-		    buffer_wb[16] === 1 ? buffer_wb[15:0] :
-		    rdata1[15:0];
+	buffer_wb[16] === 1 ? buffer_wb[15:0] :
+	rdata1[15:0];
 // Check if there is some self-modfying code here, if there is or there is
 // a previous load then just flush the pipeline
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]);
@@ -358,11 +359,12 @@ wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_
 wire isLd_needsFlush = isLd === 1 & ((isLd_e1 === 1 & rt_wb === regs_addr0_execute1) | (isLd_e2 === 1 & rt_wb === regs_addr0_execute2));
 
 // If any of the above cases are met, flush the pipeline
-wire isFlushing = ((pc_real != pc_execute1) | isSt_needsFlush === 1) & valid_execute2 & valid_execute1;
+wire isFlushing = (((pc_real != pc_execute1) | isSt_needsFlush === 1) & valid_execute2 & valid_execute1) | pc_passed[16] === 1;
+
 
 // This is the halting logic, if we get an instruction we don't recognize and
 // its valid bit is set to 0 then we are done executing
-wire isValidIns = isSub | isAdd | isInc | isDec | isCmp | isPause | isResume | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
+wire isValidIns = isSub | isAdd | isInc | isDec | isCmp | isPause | isResume | isAwaken | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
 wire updateRegs = isSub | isAdd | isInc | isDec | isCmp | isMovl | isMovh | isLd;
 
@@ -394,6 +396,11 @@ assign pauseResume[2] = (isPause === 1 | isResume === 1) & valid_execute2 === 1;
 assign pauseResume[1] = isResume === 1;
 assign pauseResume[0] = va_wb[0];
 
+
+assign pc_out[17] = isAwaken === 1 & valid_execute2 === 1;
+assign pc_out[16] = va_wb[0];
+assign pc_out[15:0] = vt_wb;
+
 // Not really going to be used for right now
 wire stall6 = 0;
 reg[16:0] buffer_wb;
@@ -406,13 +413,17 @@ wire debugging = debug;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
-		pc <= isFlushing === 1 ? pc_real : 
+		pc <= pc_passed[16] === 1 ? pc_passed[15:0] :
+			isFlushing === 1 ? pc_real : 
 			shouldStall >= 1 ? pc : 
 			predicted;
 		if(isFlushing === 1 & isJumping === 1 & valid_execute2 === 1)
 			predictor_table[pc_execute2[10:1]] <= {1'b1, pc_real};
 		if (updateRegs & (rt_wb == 0) & valid_execute2 === 1 & (shouldStall !== 6))
 			$write("%c", regs_wdata[7:0]);
+
+		if(pc_passed[16] === 1)
+			isAwake <= 1;
 
 		buffer_wb <= data_copy[16] === 1 ? buffer_wb[16] === 1 ? buffer_wb : {1'b1, rdata1[15:0]} : 17'b0;
 		data_copy[15:0] <= rdata1[15:0];
@@ -432,6 +443,9 @@ always @(posedge clk) begin
 		$write("Should Stall? = %x\n", shouldStall);
 		$write("isFlushing = %b\n", isFlushing);
 		$write("Buffer_f1 = %b %x\n", buffer_f1[16], buffer_f1[15:0]);
+		$write("pc_passed = %b %x\n", pc_passed[16], pc_passed[15:0]);
+		$write("isJumping = %b\n", isJumping);
+		$write("predicted = %b %x\n", predicted[16], predicted[15:0]);
 		$write("\n");
 	end
 end
