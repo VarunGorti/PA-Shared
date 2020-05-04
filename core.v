@@ -282,8 +282,8 @@ wire[16:0] reg_out_e2 = isSub_e2 ? va_e2 - vb_e2 :
 	isInc_e2 ? vt_e2 + imm_e2 :
 	isDec_e2 ? vt_e2 - imm_e2 :
 	isCmp_e2 ? va_e2 === vb_e2 :
-	isMovl ? { {8{imm_e2[7]}}, imm_e2} :
-	isMovh ? ((vt_e2 & 16'hff) | { imm_e2, 8'h0 }) :
+	isMovl_e2 ? { {8{imm_e2[7]}}, imm_e2} :
+	isMovh_e2 ? ((vt_e2 & 16'hff) | { imm_e2, 8'h0 }) :
 	0;
 
 

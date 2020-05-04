@@ -13,8 +13,8 @@ clock c0(clk);
 wire halt1;
 wire halt2;
 
-wire[16:0] pc_passed_1 = 17'b0;
-wire[16:0] pc_passed_2 = 17'h200;
+wire[16:0] pc_passed_1 = 17'h0;
+wire[16:0] pc_passed_2 = 17'h0;
 
 wire[2:0] stall_num_1;
 assign stall_num_1 = pauseResume_1 === 3'b100 | pauseResume_2 === 3'b100 ? 6 :
@@ -37,7 +37,7 @@ wire wen_1;
 wire[15:1] waddr_1;
 wire[15:0] wdata_1;
 wire[2:0] pauseResume_1;
-wire debug_1 = 1;
+wire debug_1 = 0;
 
 wire[15:0] pc_2;
 wire[15:0] rdata0_2;
