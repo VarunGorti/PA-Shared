@@ -1,5 +1,5 @@
 `timescale 1ps/1ps
-module core(input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num,
+module core(input[1:0] coreNum, input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num,
 	output[15:0] pc_, input[15:0] rdata0_,
 	output[16:1] raddr1_, input[17:0] rdata1_,
 	output wen_, output[15:1] waddr_, output[15:0] wdata_,
@@ -433,17 +433,19 @@ always @(posedge clk) begin
 	end
 
 	if(debugging) begin
-		$write("************** pc = %x\n", pc);
+		$write("*** CORE: %d ****** pc = %x\n", coreNum, pc);
 		$write("          Fetch 1 = %x %b\n", pc_fetch0, valid_fetch0);
 		$write("        Execute 0 = %x %b %x\n", pc_fetch1, valid_fetch1, instruction);
 		$write("        Execute 1 = %x %b %x\n", pc_execute0, valid_execute0, instruction_execute0);
 		$write("        Execute 2 = %x %b %x\n", pc_execute1, valid_execute1, instruction_execute1);
 		$write("       Write Back = %x %b %x\n", pc_execute2, valid_execute2, instruction_execute2);
-		$write("Should Stall? = %x\n", shouldStall);
+		$write("Internal, ShouldStall = %x, %x\n", internalStall, shouldStall);
 		$write("isFlushing = %b\n", isFlushing);
 		$write("Buffer_f1 = %b %x\n", buffer_f1[16], buffer_f1[15:0]);
 		$write("pc_passed = %b %x\n", pc_passed[16], pc_passed[15:0]);
 		$write("isJumping = %b\n", isJumping);
+		$write("wen = %b\n", wen);
+		$write("awake, halt = %b, %b\n", awake, halt_);
 		$write("predicted = %b %x\n", predicted[16], predicted[15:0]);
 		$write("\n");
 	end
