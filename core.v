@@ -1,10 +1,9 @@
 `timescale 1ps/1ps
-
 module core(input clk, output halt_, input[16:0] pc_passed, input[2:0] stall_num,
 	output[15:0] pc_, input[15:0] rdata0_,
-	output[16:1] raddr1_, input[16:0] rdata1_,
+	output[16:1] raddr1_, input[17:0] rdata1_,
 	output wen_, output[15:1] waddr_, output[15:0] wdata_,
-	output[2:0] pauseResume, output[17:0] pc_out, output awake,
+	output[3:0] pauseResume, output[18:0] pc_out, output awake,
 	input debug);
 
 // clock
@@ -30,7 +29,7 @@ assign wdata_ = wdata;
 wire[15:1] raddr0;
 wire[15:0] rdata0 = rdata0_;
 wire[16:1] raddr1;
-wire[16:0] rdata1 = rdata1_;
+wire[17:0] rdata1 = rdata1_;
 wire wen;
 wire[15:1] waddr;
 wire[15:0] wdata;
@@ -392,13 +391,13 @@ assign wdata = vt_wb;
 // 1st bit is valid bit, 2nd bit is 0 for pause, 1 for resume, last bit is
 // which core
 //wire[2:0] pauseResume;
-assign pauseResume[2] = (isPause === 1 | isResume === 1) & valid_execute2 === 1;
-assign pauseResume[1] = isResume === 1;
-assign pauseResume[0] = va_wb[0];
+assign pauseResume[3] = (isPause === 1 | isResume === 1) & valid_execute2 === 1;
+assign pauseResume[2] = isResume === 1;
+assign pauseResume[1:0] = va_wb[1:0];
 
 
-assign pc_out[17] = isAwaken === 1 & valid_execute2 === 1;
-assign pc_out[16] = va_wb[0];
+assign pc_out[18] = isAwaken === 1 & valid_execute2 === 1;
+assign pc_out[17:16] = va_wb[1:0];
 assign pc_out[15:0] = vt_wb;
 
 // Not really going to be used for right now
