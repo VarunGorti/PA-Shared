@@ -45,19 +45,19 @@ wire[2:0] stall_num_2;
 assign stall_num_2 = pauseResume_1 === 4'b1001 | pauseResume_2 === 4'b1001 | pauseResume_3 === 4'b1001 | pauseResume_4 === 4'b1001 ? 6 :
 	pauseResume[1] === 0 & pauseResume_1 !== 4'b1101 & pauseResume_2 !== 4'b1101 & pauseResume_3 !== 4'b1101 & pauseResume_4 !== 4'b1101 ? 6 :
 	(wen_1 & wen_2) === 1 ? 6 : 
-	(raddr1_1[16] & raddr1_2[16]) === 1 ? 3 : 
+	(raddr1_1[16] & raddr1_2[16]) === 1 ? 4 : 
 	0;
 wire[2:0] stall_num_3;
 assign stall_num_3 = pauseResume_1 === 4'b1010 | pauseResume_2 === 4'b1010 | pauseResume_3 === 4'b1010 | pauseResume_4 === 4'b1010 ? 6 :
 	pauseResume[2] === 0 & pauseResume_1 !== 4'b1110 & pauseResume_2 !== 4'b1110 & pauseResume_3 !== 4'b1110 & pauseResume_4 !== 4'b1110 ? 6 :
 	((wen_1 | wen_2) & wen_3) === 1 ? 6 : 
-	((raddr1_1[16] | raddr1_2[16]) & raddr1_3[16]) === 1 ? 3 : 
+	((raddr1_1[16] | raddr1_2[16]) & raddr1_3[16]) === 1 ? 4 : 
 	0;
 wire[2:0] stall_num_4;
 assign stall_num_4 = pauseResume_1 === 4'b1011 | pauseResume_2 === 4'b1011 | pauseResume_3 === 4'b1011 | pauseResume_4 === 4'b1011 ? 6 :
 	pauseResume[3] === 0 & pauseResume_1 !== 4'b1111 & pauseResume_2 !== 4'b1111 & pauseResume_3 !== 4'b1111 & pauseResume_4 !== 4'b1111 ? 6 :
 	((wen_1 | wen_2 | wen_3) & wen_4) === 1 ? 6 : 
-	((raddr1_1[16] | raddr1_2[16] | raddr1_3[16]) & raddr1_4[16]) === 1 ? 3 : 
+	((raddr1_1[16] | raddr1_2[16] | raddr1_3[16]) & raddr1_4[16]) === 1 ? 4 : 
 	0;
 wire debug_mem = 0;
 
@@ -81,7 +81,7 @@ wire[15:0] wdata_2;
 wire[3:0] pauseResume_2;
 wire[18:0] pc_out_2;
 wire awake_2;
-wire debug_2 = 0;
+wire debug_2 = 1;
 
 wire[15:0] pc_3;
 wire[15:0] rdata0_3;

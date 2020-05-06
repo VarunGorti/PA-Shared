@@ -179,8 +179,8 @@ assign raddr1[15:1] = instruction_execute0[11:8] == 0 ? 0 :
 	regs_data0[15:1];
 assign raddr1[16] = isLd_e0;
 // Helper wires to indicate if data was forwarded
-wire forward_e2 = regs_addr0_execute0 === rt_e2 & regs_wen_e2; 
-wire forward_wb = regs_addr0_execute0 === rt & regs_wen; 
+wire forward_e2 = regs_addr0_execute0 === rt_e2 & regs_wen_e2 === 1; 
+wire forward_wb = regs_addr0_execute0 === rt_wb & regs_wen === 1; 
 
 // ========================================= EXECUTE 1 ======================
 
@@ -445,8 +445,11 @@ always @(posedge clk) begin
 		$write("pc_passed = %b %x\n", pc_passed[16], pc_passed[15:0]);
 		$write("isJumping = %b\n", isJumping);
 		$write("wen = %b\n", wen);
-		$write("awake, halt = %b, %b\n", awake, halt_);
-		$write("predicted = %b %x\n", predicted[16], predicted[15:0]);
+		$write("raddr1 = %b %x\n", raddr1[16], {raddr1[15:1], 1'b0});
+		$write("forward_e2, reg_out_e2 = %b, %x\n", forward_e2, {reg_out_e2[15:1], 1'b0});
+		$write("forward_wb, reg_out = %b, %x\n", forward_wb, {reg_out[15:1], 1'b0});
+		//$write("awake, halt = %b, %b\n", awake, halt_);
+		//$write("predicted = %b %x\n", predicted[16], predicted[15:0]);
 		$write("\n");
 	end
 end
