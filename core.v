@@ -148,6 +148,8 @@ wire[2:0] internalStall = stall6 === 1 ? 6 :
 	stall1 === 1 ? 1 :
 	0;
 
+reg[16:0] regs0_e0_buffer = 0;
+reg[16:0] regs1_e0_buffer = 0;
 // Combination of the interal and external stall signals, to take care of data
 // hazards within this core and resource hazards detected by the CPU
 wire[2:0] shouldStall =  stall_num > internalStall ? stall_num : internalStall;
@@ -162,6 +164,9 @@ always @(posedge clk) begin
 		valid_execute0 <= (isFlushing === 1 | shouldStall === 3) ? 0 :
 			shouldStall >= 3 ? valid_execute0 : 
 			valid_fetch1;
+
+		regs0_e0_buffer <= (shouldStall >= 3) === 1 && regs0_e0_buffer[16] === 1 ? {1'b1,regs0_e0_buffer[15:0]} : (shouldStall >= 3) === 1 ? {1'b1, regs_data0} :  {1'b0,regs_data0};
+		regs1_e0_buffer <= (shouldStall >= 3) === 1 && regs1_e0_buffer[16] === 1 ? {1'b1,regs1_e0_buffer[15:0]} : (shouldStall >= 3) === 1 ? {1'b1, regs_data1} :  {1'b0,regs_data1};
 	end
 end
 
@@ -206,12 +211,12 @@ always @(posedge clk) begin
 		regs_data0_execute1 <= (shouldStall >= 4) === 1 ? regs_data0_execute1 :
 			regs_addr0_execute0 == 0 ? 16'b0 :
 			regs_addr0_execute0 == regs_waddr & regs_wen ? reg_out :
-			regs_data0;  
+			regs0_e0_buffer[16] === 1 ? regs0_e0_buffer[15:0] : regs_data0[15:0];  
 
 		regs_data1_execute1 <= (shouldStall >= 4) === 1 ? regs_data1_execute1 :
 			regs_addr1_execute0 === 0 ? 16'b0 :
 			regs_addr1_execute0 === regs_waddr & regs_wen ? reg_out :
-			regs_data1;  
+			regs1_e0_buffer[16] === 1 ? regs1_e0_buffer[15:0] : regs_data1[15:0];  
 
 		pc_execute1 <= (shouldStall >= 4) === 1 ? pc_execute1 : pc_execute0;
 		instruction_execute1 <= (shouldStall >= 4) === 1 ? instruction_execute1 : instruction_execute0;
@@ -405,6 +410,16 @@ wire[15:0] pc_real = isJumping === 1 & valid_execute2 === 1 ? vt_wb : pc_execute
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
+		//$write("%d %d %d %d\n", regs0_e0_buffer, regs_data0, regs1_e0_buffer, regs_data1);
+		/*
+		if (coreNum === 1)begin
+			$write("Stall %d\n", shouldStall);
+			$write("RegData0 %d, RegData1 %d, buff1: %d, buff2: %d\n", regs_data0[15:0], regs_data1[15:0], regs0_e0_buffer, regs1_e0_buffer);
+			$write("E2 Ins:%h R0:%d R1:%d\n", instruction_execute2, regs_data0_execute2, regs_data1_execute2);
+			$write("E1 Ins:%h R0%d R1%d\n", instruction_execute1, regs_data0_execute1, regs_data1_execute1);
+			$write("E0 Ins: %h\n\n\n", instruction_execute0);
+		end
+		*/
 		pc <= pc_passed[16] === 1 ? pc_passed[15:0] :
 			isFlushing === 1 ? pc_real : 
 			shouldStall >= 1 ? pc : 
