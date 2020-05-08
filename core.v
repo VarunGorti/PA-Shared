@@ -3,25 +3,23 @@ module core(input[1:0] coreNum, input clk, output halt_, input[16:0] pc_passed, 
 	output[15:0] pc_, input[15:0] rdata0_,
 	output[16:1] raddr1_, input[17:0] rdata1_,
 	output wen_, output[15:1] waddr_, output[15:0] wdata_,
-	output[3:0] pauseResume, output[18:0] pc_out, output awake,
-	input debug);
-
-// clock
-//clock c0(clk);
+	output[3:0] pauseResume, output[18:0] pc_out, output awake);
 
 // PC
 reg[15:0] pc;
 assign pc_ = pc;
 
+// Indicator for whether or not this core is awake and running code.
+// Once a core has been awoken, it cannot go back to sleep, although it can
+// be paused indefinitely or asked to awaken to a different pc
 reg isAwake = 0;
 assign awake = isAwake | pc_passed[16] === 1;
 
 reg halt = 0;
 assign halt_ = halt;
 
-//assign rdata0 = rdata0_;
+// Read and write ports for memory, not unique to this core
 assign raddr1_ = raddr1;
-//assign rdata1 = rdata1_;
 assign wen_ = wen; 
 assign waddr_ = waddr;
 assign wdata_ = wdata;
@@ -34,16 +32,7 @@ wire wen;
 wire[15:1] waddr;
 wire[15:0] wdata;
 
-
-/*
-// read from memory
-mem mem(clk,
-	pc[15:1], rdata0,
-	raddr1, rdata1,
-	wen, waddr, wdata); 
-*/
-
-
+// Read and write ports for register file, unique to this core
 wire[3:0] regs_addr0;
 wire[15:0] regs_data0;
 wire[3:0] regs_addr1;
@@ -96,12 +85,13 @@ always @(posedge clk) begin
 	end
 end
 
+// Create a buffer and a copy of this instruction so that when we have to
+// stall we don't lose the instruction coming out of memory, if we realize the
+// buffer is full then read from it after the stall is complete
 reg[16:0] buffer_f1;
-
 wire[15:0] instruction = instruction_copy[16] === 1 ? instruction_copy[15:0] : 
 	buffer_f1[16] === 1 ? buffer_f1[15:0] : 
 	rdata0;
-
 
 wire[3:0] opcode = instruction[15:12];
 wire[3:0] xop = instruction[7:4];
@@ -142,6 +132,9 @@ wire isCmp_e0 = opcode_e0 == 5;
 wire isLd_e0 = opcode_e0 == 15 & xop_e0 == 0 & valid_execute0 === 1;
 wire isSt_e0 = opcode_e0 == 15 & xop_e0 == 1; 
 
+// Code checking if the instructions ahead are loads or stores that would
+// create data hazards with this instruction, if so stalls this instruction so
+// that it does not move onwards
 wire st_stall = isLd_f1 & ((isSt_e0 === 1 & valid_execute0) | (isSt_e1 === 1 & valid_execute1));
 wire ld_stall = isLd_f1 & ((isLd_e0 === 1 & ra === rt_e0 & valid_execute0) | (isLd_e1 === 1 & ra === rt_e1 & valid_execute1));
 
@@ -154,6 +147,9 @@ wire[2:0] internalStall = stall6 === 1 ? 6 :
 	stall2 === 1 ? 2 :
 	stall1 === 1 ? 1 :
 	0;
+
+// Combination of the interal and external stall signals, to take care of data
+// hazards within this core and resource hazards detected by the CPU
 wire[2:0] shouldStall =  stall_num > internalStall ? stall_num : internalStall;
 always @(posedge clk) begin
 	if(shouldContinue) begin
@@ -169,15 +165,15 @@ always @(posedge clk) begin
 	end
 end
 
-// If the register we were waiting on was 0, set it to 0
-// Otherwise either use the forwarde
-// d data, if it exists, or just the thing
-// coming out of the register file
+// Sets the read port memory address, based on either the forwarded addresses
+// from future stages or the register data we just read from (as normal for
+// a load)
 assign raddr1[15:1] = instruction_execute0[11:8] == 0 ? 0 :
 	forward_e2 ? reg_out_e2[15:1] :
 	forward_wb ? reg_out[15:1] :
 	regs_data0[15:1];
 assign raddr1[16] = isLd_e0;
+
 // Helper wires to indicate if data was forwarded
 wire forward_e2 = regs_addr0_execute0 === rt_e2 & regs_wen_e2 === 1; 
 wire forward_wb = regs_addr0_execute0 === rt_wb & regs_wen === 1; 
@@ -226,7 +222,6 @@ always @(posedge clk) begin
 			valid_execute0;
 	end
 end
-
 
 // ========================================= EXECUTE 2 ======================
 
@@ -285,7 +280,6 @@ wire[16:0] reg_out_e2 = isSub_e2 ? va_e2 - vb_e2 :
 	isMovh_e2 ? ((vt_e2 & 16'hff) | { imm_e2, 8'h0 }) :
 	0;
 
-
 always @(posedge clk) begin
 	if(shouldContinue) begin
 		regs_data0_execute2 <= (shouldStall >= 5) === 1 ? regs_data0_execute2 :
@@ -327,6 +321,8 @@ wire isAwaken = opcode_wb == 6 & xop_wb == 0;
 wire isPause = opcode_wb == 6 & xop_wb == 1;
 wire isResume = opcode_wb == 6 & xop_wb == 2;
 
+wire isPrint = opcode_wb == 7;
+
 wire isMovl = opcode_wb == 8;
 wire isMovh = opcode_wb == 9;
 wire isLd = opcode_wb == 15 & xop_wb == 0;
@@ -346,24 +342,23 @@ wire isJumping = (isJz & (va_wb == 0)) |
 	(isJs & (va_wb[15] == 1)) |
 	(isJns & (va_wb[15] == 0));
 
+// Second buffer to catch things coming out of memory, in this case it is the
+// data relevant for a load. Here we use the same buffer/copy principle as
+// before to store the data and then read from it when we need to output
 wire[15:0] ld_out = data_copy[16] === 1 ? data_copy[15:0] :
 	buffer_wb[16] === 1 ? buffer_wb[15:0] :
 	rdata1[15:0];
+
 // Check if there is some self-modfying code here, if there is or there is
 // a previous load then just flush the pipeline
 wire isSt_needsFlush = isSt === 1 & (waddr === pc_execute1[15:1] | waddr === pc_execute0[15:1] | waddr === pc_fetch1[15:1] | waddr === pc_fetch0[15:1] | waddr === pc[15:1]);
 
-// If this is a load, and either of the previous two are loads, just flush the
-// whole thing
-wire isLd_needsFlush = isLd === 1 & ((isLd_e1 === 1 & rt_wb === regs_addr0_execute1) | (isLd_e2 === 1 & rt_wb === regs_addr0_execute2));
-
 // If any of the above cases are met, flush the pipeline
 wire isFlushing = (((pc_real != pc_execute1) | isSt_needsFlush === 1) & valid_execute2 & valid_execute1) | pc_passed[16] === 1;
 
-
 // This is the halting logic, if we get an instruction we don't recognize and
 // its valid bit is set to 0 then we are done executing
-wire isValidIns = isSub | isAdd | isInc | isDec | isCmp | isPause | isResume | isAwaken | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
+wire isValidIns = isSub | isAdd | isInc | isDec | isCmp | isPause | isResume | isAwaken | isPrint | isMovl | isMovh | isJz | isJnz | isJs | isJns | isLd | isSt | valid_execute2 === 0;
 wire shouldContinue = isValidIns === 1'b1 | isValidIns === 1'bx;
 wire updateRegs = isSub | isAdd | isInc | isDec | isCmp | isMovl | isMovh | isLd;
 
@@ -384,23 +379,22 @@ assign regs_waddr = rt_wb;
 assign regs_wen = updateRegs & (rt_wb != 0) & valid_execute2 === 1 & (shouldStall !== 6); 
 
 assign wen = isSt & (valid_execute2 === 1); 
-//& (shouldStall !== 6);	
 assign waddr = va_wb[15:1];
 assign wdata = vt_wb;
 
-// 1st bit is valid bit, 2nd bit is 0 for pause, 1 for resume, last bit is
-// which core
-//wire[2:0] pauseResume;
+// 1st bit is valid bit, 2nd bit indicates whether it is a pause or a resume,
+// 3rd/4th bits indicate which core we are operating on (0 indexed)
 assign pauseResume[3] = (isPause === 1 | isResume === 1) & valid_execute2 === 1;
 assign pauseResume[2] = isResume === 1;
 assign pauseResume[1:0] = va_wb[1:0];
 
-
+// Used for the awaken instruction
+// 1st bit is valid bit, 2nd/3rd bits indicate which core we are operating on,
+// 4th bit indicates the pc to be passed
 assign pc_out[18] = isAwaken === 1 & valid_execute2 === 1;
 assign pc_out[17:16] = va_wb[1:0];
 assign pc_out[15:0] = vt_wb;
 
-// Not really going to be used for right now
 wire stall6 = 0;
 reg[16:0] buffer_wb;
 reg[16:0] data_copy;
@@ -408,7 +402,6 @@ reg[16:0] data_copy;
 // Calculate what the real PC should be, so that we can compare to see if our
 // prediction was correct
 wire[15:0] pc_real = isJumping === 1 & valid_execute2 === 1 ? vt_wb : pc_execute2 + 2;
-wire debugging = debug;
 
 always @(posedge clk) begin
 	if(shouldContinue) begin
@@ -420,37 +413,16 @@ always @(posedge clk) begin
 			predictor_table[pc_execute2[10:1]] <= {1'b1, pc_real};
 		if (updateRegs & (rt_wb == 0) & valid_execute2 === 1 & (shouldStall !== 6))
 			$write("%c", regs_wdata[7:0]);
-
+		if(isPrint === 1)
+			$write("%d\n", vt_wb);
 		if(pc_passed[16] === 1)
 			isAwake <= 1;
-
 		buffer_wb <= data_copy[16] === 1 ? buffer_wb[16] === 1 ? buffer_wb : {1'b1, rdata1[15:0]} : 17'b0;
 		data_copy[15:0] <= rdata1[15:0];
 		data_copy[16] <= (shouldStall >= 6) === 1;
 
 	end else begin
 		halt <= 1;
-	end
-
-	if(debugging) begin
-		$write("*** CORE: %d ****** pc = %x\n", coreNum, pc);
-		$write("          Fetch 1 = %x %b\n", pc_fetch0, valid_fetch0);
-		$write("        Execute 0 = %x %b %x\n", pc_fetch1, valid_fetch1, instruction);
-		$write("        Execute 1 = %x %b %x\n", pc_execute0, valid_execute0, instruction_execute0);
-		$write("        Execute 2 = %x %b %x\n", pc_execute1, valid_execute1, instruction_execute1);
-		$write("       Write Back = %x %b %x\n", pc_execute2, valid_execute2, instruction_execute2);
-		$write("Internal, ShouldStall = %x, %x\n", internalStall, shouldStall);
-		$write("isFlushing = %b\n", isFlushing);
-		$write("Buffer_f1 = %b %x\n", buffer_f1[16], buffer_f1[15:0]);
-		$write("pc_passed = %b %x\n", pc_passed[16], pc_passed[15:0]);
-		$write("isJumping = %b\n", isJumping);
-		$write("wen = %b\n", wen);
-		$write("raddr1 = %b %x\n", raddr1[16], {raddr1[15:1], 1'b0});
-		$write("forward_e2, reg_out_e2 = %b, %x\n", forward_e2, {reg_out_e2[15:1], 1'b0});
-		$write("forward_wb, reg_out = %b, %x\n", forward_wb, {reg_out[15:1], 1'b0});
-		//$write("awake, halt = %b, %b\n", awake, halt_);
-		//$write("predicted = %b %x\n", predicted[16], predicted[15:0]);
-		$write("\n");
 	end
 end
 
