@@ -1,0 +1,35 @@
+sumrange = fun(st, end, tot){
+    while ((st == end) == 0){
+        tot = tot + st
+        st = st + 1
+    }
+    return tot
+}
+
+addq1 = fun{
+    q1sum = sumrange(1,26,0)
+    resume(1)
+}
+
+addq2 = fun{
+    q2sum = sumrange(26,51,0)
+    pause(1)
+    resume(2)
+}
+
+addq3 = fun{
+    q3sum = sumrange(51,76,0)
+    pause(2)
+    resume(3)
+}
+
+addq4 = fun{
+    q4sum = sumrange(76,101,0)
+    pause(3)
+    printnum(q1sum + q2sum + q3sum + q4sum)
+}
+
+wake(3, addq4)
+wake(2,addq3)
+wake(1,addq2)
+wake(0, addq1)

@@ -1,0 +1,89 @@
+wake = fun(core,pc){
+    if (core == 0){
+        pccore0 = pc
+        target = wc0
+        $0a08
+        $6708
+    }
+    if (core == 1){
+        pccore1 = pc
+        target1 = wc1
+        $0a08
+        $6708
+    }
+    if (core == 2){
+        pccore2 = pc
+        target2 = wc2
+        $0a08
+        $6708
+    }
+    if (core == 3){
+       pccore3 = pc
+       target3 = wc3
+       $0a08
+       $6708
+    }
+}
+
+wc0 = fun{
+    $xxx0
+    $yyy0
+    $80a4
+    $f514
+    $2025
+    $8007
+    $8008
+    $8009
+    tar = pccore0
+    $e00a
+}
+
+wc1 = fun{
+    $xxx1
+    $yyy1
+    $80a4
+    $f514
+    $2025
+    $8007
+    $8008
+    $8009
+    tar1 = pccore1
+    $e00a
+}
+
+wc2 = fun{
+    $xxx2
+    $yyy2
+    $80a4
+    $f514
+    $2025
+    $8007
+    $8008
+    $8009
+    tar2 = pccore2
+    $e00a
+}
+
+wc3 = fun{
+    $xxx3
+    $yyy3
+    $80a4
+    $f514
+    $2025
+    $8007
+    $8008
+    $8009
+    tar3 = pccore3
+    $e00a
+}
+
+pause = fun(core){
+    $6710
+}
+resume = fun(core){
+    $6720
+}
+
+printnum = fun(p){
+    $7007
+}

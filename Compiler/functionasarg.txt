@@ -1,0 +1,12 @@
+call = fun(x){
+    x()
+}
+hello = fun(){
+    print(72)
+    print(69)
+    print(76)
+    print(76)
+    print(79)
+}
+
+call(hello)

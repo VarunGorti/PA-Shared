@@ -1,0 +1,11 @@
+============== README ====================
+
+There are 3 relevant Verilog files created for the processor part of this project: cpu.v, mem.v, core.v
+
+There are also a number of simple test cases designed to show very simple features of our processor; these were used as we were developing and testing functionality of the processor and are a good way to understand the basics. 
+	To compile: make
+	To run: make test
+	To clean: make clean
+	(the exact same format as p9)
+
+The tests have names that describe exactly what they are doing, and I included the test case t0.hex and my own vgorti.hex from p9, to show backwards compatability with what we already did.

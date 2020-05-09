@@ -1,0 +1,22 @@
+multiprint = fun(char, x){
+    while (x){
+        x = x - 1
+        print(char)
+    }
+}
+a = fun{
+    multiprint(65, 15)
+}
+b = fun{
+    multiprint(66, 15)
+}
+c = fun{
+    multiprint(67, 15)
+}
+d = fun{
+    multiprint(68, 15)
+}
+wake(3,d)
+wake(2,c)
+wake(1,b)
+wake(0,a)

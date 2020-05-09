@@ -1,0 +1,10 @@
+sum = fun(x){
+    if (x == 0){
+        return 0
+    }
+    return x + sum(x-1)
+}
+printnum(sum(1))
+printnum(sum(10))
+printnum(sum(20))
+printnum(sum(50))

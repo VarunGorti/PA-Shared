@@ -1,0 +1,19 @@
+core1prints = fun{
+    pause(1)
+    print(66)
+    print(67)
+    resume(2)
+    pause(1)
+    print(70)
+}
+
+core2prints = fun{
+    print(65)
+    resume(1)
+    pause(2)
+    print(68)
+    print(69)
+    resume(1)
+}
+wake(1,core1prints)
+wake(2,core2prints)

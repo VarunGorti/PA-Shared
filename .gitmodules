@@ -1,0 +1,3 @@
+[submodule "Compiler/FunCompiler"]
+	path = Compiler/FunCompiler
+	url = https://github.com/Derayvative/FunCompilerPA
