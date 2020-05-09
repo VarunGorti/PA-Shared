@@ -326,7 +326,7 @@ wire isAwaken = opcode_wb == 6 & xop_wb == 0;
 wire isPause = opcode_wb == 6 & xop_wb == 1;
 wire isResume = opcode_wb == 6 & xop_wb == 2;
 
-wire isPrint = opcode_wb == 7;
+wire isPrint = opcode_wb === 7;
 
 wire isMovl = opcode_wb == 8;
 wire isMovh = opcode_wb == 9;
@@ -428,7 +428,7 @@ always @(posedge clk) begin
 			predictor_table[pc_execute2[10:1]] <= {1'b1, pc_real};
 		if (updateRegs & (rt_wb == 0) & valid_execute2 === 1 & (shouldStall !== 6))
 			$write("%c", regs_wdata[7:0]);
-		if(isPrint === 1)
+		if(isPrint === 1 & valid_execute2 === 1 & shouldStall != 6)
 			$write("%d\n", vt_wb);
 		if(pc_passed[16] === 1)
 			isAwake <= 1;
